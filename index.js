@@ -8,12 +8,13 @@ var $ = require("jquery");
 var util = require("util");
 //var xhr = require("./lib/xhr");
 var lib = require("ea-lib");
+var bookmarklet = exports.bookmarklet = require("./lib/bookmarklet");
 //var WRGenerator = require("./lib/WRGenerator");
 
 
 
 exports.lib = lib;
-Object.assign(exports, lib);
+//Object.assign(exports, lib);
 
 exports.EventEmitter = require("events").EventEmitter;
 exports.$ = $;
