@@ -4980,6 +4980,7 @@ var $ = require("jquery");
 var util = require("util");
 //var xhr = require("./lib/xhr");
 var lib = require("ea-lib");
+var bookmarklet = exports.bookmarklet = require("./lib/bookmarklet");
 //var WRGenerator = require("./lib/WRGenerator");
 
 
@@ -5050,7 +5051,437 @@ exports.base64 = {
 if(typeof(window)!='undefined') {
   Object.assign(window, lib, exports);
 }
-},{"ea-lib":20,"events":5,"jquery":35,"path":7,"querystring":12,"url":13,"util":17}],19:[function(require,module,exports){
+},{"./lib/bookmarklet":19,"ea-lib":23,"events":5,"jquery":39,"path":7,"querystring":12,"url":13,"util":17}],19:[function(require,module,exports){
+const version = [1, 0, 2];
+const md5 = require('md5');
+
+// metadata
+const str = 1;
+const list = 2;
+const bool = 3;
+const metadata = {
+  types: {
+    string: str,
+    list: list,
+    boolean: bool
+  },
+  keys: {
+    name: str,
+    version: str,
+    description: str,
+    repository: str,
+    author: str,
+    email: str,
+    url: str,
+    license: str,
+    script: list,
+    style: list
+  }
+};
+
+
+var encode = (code) => `javascript:${encodeURIComponent(code)}`;
+var decode = (code) => decodeURIComponent(code);
+
+function quoteEscape(x) {
+  return x.replace('"', '\\"').replace("'", "\\'");
+}
+
+function extractOptions(path) {
+  // Returns {
+  //   path: the updated path string (minus any options)
+  //   opts: plain object of options
+  // }
+  //
+  // You can prefix a path with options in the form of:
+  //
+  // ```
+  // @style !loadOnce !foo=false https://example.com/foo.css
+  // ```
+  //
+  // If there is no `=`, then the value of the option defaults to `true`.
+  // Values get converted via JSON.parse if possible, o/w they're a string.
+  //
+  let opts = {};
+  while (true) {
+    let m = path.match(/^(\![^\s]+)\s+/);
+    if (m) {
+      path = path.substring(m.index + m[0].length);
+      let opt = m[1].substring(1).split('=');
+      opts[opt[0]] = opt[1] === undefined ? true : _fuzzyParse(opt[1]);
+    } else {
+      break;
+    }
+  }
+  return { path, opts };
+}
+
+const _fuzzyParse = val => {
+  try {
+    return JSON.parse(val);
+  } catch (e) {
+    return val;
+  }
+};
+
+function loadScript(code, path, loadOnce) {
+  loadOnce = !!loadOnce;
+  let id = `bookmarklet__script_${md5(path).substring(0, 7)}`;
+  return `
+        function callback(){
+          ${code}
+        }
+
+        if (!${loadOnce} || !document.getElementById("${id}")) {
+          var s = document.createElement("script");
+          if (s.addEventListener) {
+            s.addEventListener("load", callback, false)
+          } else if (s.readyState) {
+            s.onreadystatechange = callback
+          }
+          if (${loadOnce}) {
+            s.id = "${id}";
+          }
+          s.src = "${quoteEscape(path)}";
+          document.body.appendChild(s);
+        } else {
+          callback();
+        }
+    `;
+}
+
+function loadStyle(code, path, loadOnce) {
+  loadOnce = !!loadOnce;
+  let id = `bookmarklet__style_${md5(path).substring(0, 7)}`;
+  return `${code}
+        if (!${loadOnce} || !document.getElementById("${id}")) {
+          var link = document.createElement("link");
+          if (${loadOnce}) {
+            link.id = "${id}";
+          }
+          link.rel="stylesheet";
+          link.href = "${quoteEscape(path)}";
+          document.body.appendChild(link);
+        }
+    `;
+}
+/*
+function minify(code) {
+  let result = babel.transform(code, { presets: [babelPresetEnv] });
+  return uglify.minify(result.code).code;
+}
+/* */
+function minify(code) {
+    // very simple minification (and not overly aggressive on whitespace)
+    code = code.split(/\r\n|\r|\n/g);
+    var i = 0,
+      len = code.length,
+      noSemiColon = {},
+      t,
+      lastChar;
+
+    ("} { ; ,").split(" ").forEach(function(x, i) { noSemiColon[x] = 1; });
+
+    for (; i < len; i++) {
+      // note: this doesn't support multi-line strings with slashes
+      t = (code[i]).trim();
+
+      // this breaks when I put turnaries on multiple lines -- I'll leave it up
+      // to the bookmarklet writers to do semi-colons properly
+      // if (t) {
+      //     // add semi-colon if we should
+      //     if (!noSemiColon[t.charAt(t.length-1)]) {
+      //         t += ';';
+      //     }
+
+      //     // prevent the inadvertently calling a function scenario
+      //     if (i!=0 && t && t.substr(0, 1)=='(' && code[i-1].charAt(code[i-1].length-1)!=';') {
+      //         t = ';' + t;
+      //     }
+      // }
+      code[i] = t;
+    }
+    return code.join("").replace(/;$/, "");
+  }
+
+function convert(code, options) {
+  var input = code;
+  code = minify(code);
+  let stylesCode = '';
+
+  if (options.script) {
+    options.script = options.script.reverse();
+    options.script.forEach(s => {
+      let { path, opts } = extractOptions(s);
+      code = loadScript(code, path, opts.loadOnce);
+    });
+    code = minify(code);
+  }
+
+  if (options.style) {
+    options.style.forEach(s => {
+      let { path, opts } = extractOptions(s);
+      stylesCode = loadStyle(stylesCode, path, opts.loadOnce);
+    });
+    code = minify(stylesCode) + code;
+  }
+
+  code = `(function(){${code}})()`;
+  return code;
+}
+
+function parseFile(data) {
+  let inMetadataBlock = false;
+  let openMetadata = '==Bookmarklet==';
+  let closeMetadata = '==/Bookmarklet==';
+  let rComment = /^(\s*\/\/\s*)/;
+  let mdKeys = metadata.keys;
+  let mdTypes = metadata.types;
+  let options = {};
+  let code = [];
+  let errors = [];
+
+  // parse file and gather options from metadata block if available
+  data.match(/[^\r\n]+/g).forEach(function(line, i, lines) {
+    // comment
+    if (rComment.test(line)) {
+      let comment = line.replace(rComment, '').trim(),
+        canonicalComment = comment.toLowerCase().replace(/\s+/g, '');
+
+      if (!inMetadataBlock) {
+        if (canonicalComment == openMetadata.toLowerCase()) {
+          inMetadataBlock = true;
+        }
+      } else {
+        if (canonicalComment == closeMetadata.toLowerCase()) {
+          inMetadataBlock = false;
+        } else {
+          let m = comment.match(/^@([^\s]+)\s+(.*)$/);
+          if (m) {
+            let k = m[1];
+            let v = m[2];
+            if (k) {
+              if (mdKeys[k] == mdTypes.list) {
+                options[k] = options[k] || [];
+                options[k].push(v);
+              } else if (mdKeys[k] == mdTypes.boolean) {
+                options[k] = v.toLowerCase() == 'true';
+              } else {
+                options[k] = v;
+              }
+            } else {
+              warn(`ignoring invalid metadata option: '${k}'`);
+            }
+          }
+        }
+      }
+
+      // code
+    } else {
+      code.push(line);
+    }
+
+    if (inMetadataBlock && i + 1 == lines.length) {
+      errors.push(`missing metdata block closing '${closeMetadata}'`);
+    }
+  });
+
+  return {
+    code: code.join('\n'),
+    options: options,
+    errors: errors.length ? errors : null
+  };
+};
+
+
+
+
+// Exports
+
+exports.version = version;
+exports.convert = convert;
+exports.parseFile = parseFile;
+exports.metadata = metadata;
+exports.minify = minify;
+
+// Constants
+    // ----
+    var requirejs = "https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.5/require.min.js"
+    var jquery = "https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js";
+    var seadragon = {
+        script:"https://mrcoles.com/media/js/seadragon.js",
+        style:"!loadOnce https://mrcoles.com/media/css/silly.css"
+    }
+
+
+    // Default Parameters
+    // ---
+    var code = exports.defaultCode =  `window.SeaDragon.add(); console.log('OK!');`;
+
+    var defaultOpts = exports.defaultOpts = { 
+        author: "anonymous",
+        name: "bookmarklet",
+        script:[requirejs,jquery,seadragon.script],
+        style: [seadragon.style]
+    };
+
+
+    // Templates
+    // ---
+    var toFile = exports.toFile = (code=exports.defaultCode, opts = exports.defaultOpts) => {
+        var rn = (s = '') =>  s ? s + "\r\n" : "";
+        var author = s => rn(`// @sauthor ${s||'hagb4rd@gmail.com'}`)
+        var name = s => rn(`// @name ${s||'requirejs-bookmarklet'}`)
+        var style = s => rn(`// @style ${s}`);
+        var script = s => rn(`// @script ${s||requirejs}`);
+        var template = (code = exports.defaultCode, opts = exports.defaultOpts) => [
+            rn(`// ==Bookmarklet==`),
+            author(opts.author),
+            name(opts.name),
+            opts.style.map(style).join(""),
+            opts.script.map(script).join(""),
+            rn(`// ==/Bookmarklet==`),
+            code
+        ].join("");
+        return template(code = exports.defaultCode, opts = exports.defaultOpts);
+    };
+
+var window = typeof(window) != 'undefined' ? window : {};
+window.bookmarks = exports;
+},{"md5":41}],20:[function(require,module,exports){
+var charenc = {
+  // UTF-8 encoding
+  utf8: {
+    // Convert a string to a byte array
+    stringToBytes: function(str) {
+      return charenc.bin.stringToBytes(unescape(encodeURIComponent(str)));
+    },
+
+    // Convert a byte array to a string
+    bytesToString: function(bytes) {
+      return decodeURIComponent(escape(charenc.bin.bytesToString(bytes)));
+    }
+  },
+
+  // Binary encoding
+  bin: {
+    // Convert a string to a byte array
+    stringToBytes: function(str) {
+      for (var bytes = [], i = 0; i < str.length; i++)
+        bytes.push(str.charCodeAt(i) & 0xFF);
+      return bytes;
+    },
+
+    // Convert a byte array to a string
+    bytesToString: function(bytes) {
+      for (var str = [], i = 0; i < bytes.length; i++)
+        str.push(String.fromCharCode(bytes[i]));
+      return str.join('');
+    }
+  }
+};
+
+module.exports = charenc;
+
+},{}],21:[function(require,module,exports){
+(function() {
+  var base64map
+      = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/',
+
+  crypt = {
+    // Bit-wise rotation left
+    rotl: function(n, b) {
+      return (n << b) | (n >>> (32 - b));
+    },
+
+    // Bit-wise rotation right
+    rotr: function(n, b) {
+      return (n << (32 - b)) | (n >>> b);
+    },
+
+    // Swap big-endian to little-endian and vice versa
+    endian: function(n) {
+      // If number given, swap endian
+      if (n.constructor == Number) {
+        return crypt.rotl(n, 8) & 0x00FF00FF | crypt.rotl(n, 24) & 0xFF00FF00;
+      }
+
+      // Else, assume array and swap all items
+      for (var i = 0; i < n.length; i++)
+        n[i] = crypt.endian(n[i]);
+      return n;
+    },
+
+    // Generate an array of any length of random bytes
+    randomBytes: function(n) {
+      for (var bytes = []; n > 0; n--)
+        bytes.push(Math.floor(Math.random() * 256));
+      return bytes;
+    },
+
+    // Convert a byte array to big-endian 32-bit words
+    bytesToWords: function(bytes) {
+      for (var words = [], i = 0, b = 0; i < bytes.length; i++, b += 8)
+        words[b >>> 5] |= bytes[i] << (24 - b % 32);
+      return words;
+    },
+
+    // Convert big-endian 32-bit words to a byte array
+    wordsToBytes: function(words) {
+      for (var bytes = [], b = 0; b < words.length * 32; b += 8)
+        bytes.push((words[b >>> 5] >>> (24 - b % 32)) & 0xFF);
+      return bytes;
+    },
+
+    // Convert a byte array to a hex string
+    bytesToHex: function(bytes) {
+      for (var hex = [], i = 0; i < bytes.length; i++) {
+        hex.push((bytes[i] >>> 4).toString(16));
+        hex.push((bytes[i] & 0xF).toString(16));
+      }
+      return hex.join('');
+    },
+
+    // Convert a hex string to a byte array
+    hexToBytes: function(hex) {
+      for (var bytes = [], c = 0; c < hex.length; c += 2)
+        bytes.push(parseInt(hex.substr(c, 2), 16));
+      return bytes;
+    },
+
+    // Convert a byte array to a base-64 string
+    bytesToBase64: function(bytes) {
+      for (var base64 = [], i = 0; i < bytes.length; i += 3) {
+        var triplet = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2];
+        for (var j = 0; j < 4; j++)
+          if (i * 8 + j * 6 <= bytes.length * 8)
+            base64.push(base64map.charAt((triplet >>> 6 * (3 - j)) & 0x3F));
+          else
+            base64.push('=');
+      }
+      return base64.join('');
+    },
+
+    // Convert a base-64 string to a byte array
+    base64ToBytes: function(base64) {
+      // Remove non-base-64 characters
+      base64 = base64.replace(/[^A-Z0-9+\/]/ig, '');
+
+      for (var bytes = [], i = 0, imod4 = 0; i < base64.length;
+          imod4 = ++i % 4) {
+        if (imod4 == 0) continue;
+        bytes.push(((base64map.indexOf(base64.charAt(i - 1))
+            & (Math.pow(2, -2 * imod4 + 8) - 1)) << (imod4 * 2))
+            | (base64map.indexOf(base64.charAt(i)) >>> (6 - imod4 * 2)));
+      }
+      return bytes;
+    }
+  };
+
+  module.exports = crypt;
+})();
+
+},{}],22:[function(require,module,exports){
 (function (global,Buffer){
 // notepad: https://runkit.com/kasiawygodna/json.parsetyped
 // author: earendel
@@ -5144,9 +5575,9 @@ exports.sample = {
     buffer: new Buffer('hello world')
 };
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer)
-},{"buffer":4}],20:[function(require,module,exports){
+},{"buffer":4}],23:[function(require,module,exports){
 module.exports = require("./lib/lib");
-},{"./lib/lib":25}],21:[function(require,module,exports){
+},{"./lib/lib":28}],24:[function(require,module,exports){
 var util = require('util');
 var EventEmitter = require("events").EventEmitter;
 //exports.story = story;
@@ -5188,7 +5619,7 @@ Gen.prototype.stats = function() { return this.entries.map(e=>[e[1].name,e[1].sc
 Gen.prototype.toJSON = function() { return JSON.stringify(this.stats()); }
 
 module.exports = Gen;
-},{"./lib":25,"events":5,"util":17}],22:[function(require,module,exports){
+},{"./lib":28,"events":5,"util":17}],25:[function(require,module,exports){
 //var matrix=(cols, rows) => { var i2xy=i=>({x:i%cols,y:Math.floor(i/cols)}); var xy2i=(x,y)=>y*cols+x; var mx=Array.from({length: cols*rows}, (e,i)=>i2xy(i)); var f=(x,y)=>{ if ((x<0||x>=this.cols)||(y<0||y>=this.rows)) return undefined;	return this[y*cols+x] }; mx.cols=cols; mx.rows=rows; f.mx=mx; return f.bind(f.mx);};
 var EventEmitter = require("events").EventEmitter;
 
@@ -5209,7 +5640,7 @@ var board = module.exports = (cols, rows) => {
 };
 board.help = `var RedQueen={inspect:()=>"{RedQueen}"}; var p=board(8,8); p(2,3).items = [ RedQueen ]; p(2,3) --> { x: 2, y: 3, items: [ {RedQueen} ] } `;
 
-},{"events":5}],23:[function(require,module,exports){
+},{"events":5}],26:[function(require,module,exports){
 module.exports={
     "faces": "😄😃😀😊☺😉😍😘😚😗😙😜😝😛😳😁😔😌😒😞😣😢😂😭😪😥😰😅😓😩😫😨😱😠😡😤😖😆😋😷😎😴😵😲😟😦😧😈👿😮😬😐😕😯😶😇😏😑👲👳👮👷💂👶👦👧👨👩👴👵👱👼👸",
     "cat": "😺😸😻😽😼🙀😿😹😾",
@@ -5235,7 +5666,7 @@ module.exports={
     "symbol": "🔯🏧💹💲💱©®™❌‼⁉❗❓❕❔⭕🔝🔚🔙🔛🔜🔃🕛🕧🕐🕜🕑🕝🕒🕞🕓🕟🕔🕠🕕🕖🕗🕘🕙🕚🕡🕢🕣🕤🕥🕦✖➕➖➗♠♥♣♦💮💯✔☑🔘🔗➰〰〽🔱◼◻◾◽▪▫🔺🔲🔳⚫⚪🔴🔵🔻⬜⬛🔶🔷🔸🔹",
     "all": "😄😃😀😊☺😉😍😘😚😗😙😜😝😛😳😁😔😌😒😞😣😢😂😭😪😥😰😅😓😩😫😨😱😠😡😤😖😆😋😷😎😴😵😲😟😦😧😈👿😮😬😐😕😯😶😇😏😑👲👳👮👷💂👶👦👧👨👩👴👵👱👼👸😺😸😻😽😼🙀😿😹😾👹👺🙈🙉🙊💀👽💩🔥✨🌟💫💥💢💦💧💤💨👂👀👃👅👄👍👎👌👊✊✌👋✋👐👆👇👉👈🙌🙏☝👏💪🚶🏃💃👫👪👬👭💏💑👯🙆🙅💁🙋💆💇💅👰🙎🙍🙇🎩👑👒👟👞👡👠👢👕👔👚👗🎽👖👘👙💼👜👝👛👓🎀🌂💄💛💙💜💚❤💔💗💓💕💖💞💘💌💋💍💎👤👥💬👣💭🐶🐺🐱🐭🐹🐰🐸🐯🐨🐻🐷🐽🐮🐗🐵🐒🐴🐑🐘🐼🐧🐦🐤🐥🐣🐔🐍🐢🐛🐝🐜🐞🐌🐙🐚🐠🐟🐬🐳🐋🐄🐏🐀🐃🐅🐇🐉🐎🐐🐓🐕🐖🐁🐂🐲🐡🐊🐫🐪🐆🐈🐩🐾💐🌸🌷🍀🌹🌻🌺🍁🍃🍂🌿🌾🍄🌵🌴🌲🌳🌰🌱🌼🌐🌞🌝🌚🌑🌒🌓🌔🌕🌖🌗🌘🌜🌛🌙🌍🌎🌏🌋🌌🌠⭐☀⛅☁⚡☔❄⛄🌀🌁🌈🌊🎍💝🎎🎒🎓🎏🎆🎇🎐🎑🎃👻🎅🎄🎁🎋🎉🎊🎈🎌🔮🎥📷📹📼💿📀💽💾💻📱☎📞📟📠📡📺📻🔊🔉🔈🔇🔔🔕📢📣⏳⌛⏰⌚🔓🔒🔏🔐🔑🔎💡🔦🔆🔅🔌🔋🔍🛁🛀🚿🚽🔧🔩🔨🚪🚬💣🔫🔪💊💉💰💴💵💷💶💳💸📲📧📥📤✉📩📨📯📫📪📬📭📮📦📝📄📃📑📊📈📉📜📋📅📆📇📁📂✂📌📎✒✏📏📐📕📗📘📙📓📔📒📚📖🔖📛🔬🔭📰🎨🎬🎤🎧🎼🎵🎶🎹🎻🎺🎷🎸👾🎮🃏🎴🀄🎲🎯🏈🏀⚽⚾🎾🎱🏉🎳⛳🚵🚴🏁🏇🏆🎿🏂🏊🏄🎣☕🍵🍶🍼🍺🍻🍸🍹🍷🍴🍕🍔🍟🍗🍖🍝🍛🍤🍱🍣🍥🍙🍘🍚🍜🍲🍢🍡🍳🍞🍩🍮🍦🍨🍧🎂🍰🍪🍫🍬🍭🍯🍎🍏🍊🍋🍒🍇🍉🍓🍑🍈🍌🍐🍍🍠🍆🍅🌽🏠🏡🏫🏢🏣🏥🏦🏪🏩🏨💒⛪🏬🏤🌇🌆🏯🏰⛺🏭🗼🗾🗻🌄🌅🌃🗽🌉🎠🎡⛲🎢🚢⛵🚤🚣⚓🚀✈💺🚁🚂🚊🚉🚞🚆🚄🚅🚈🚇🚝🚋🚃🚎🚌🚍🚙🚘🚗🚕🚖🚛🚚🚨🚓🚔🚒🚑🚐🚲🚡🚟🚠🚜💈🚏🎫🚦🚥⚠🚧🔰⛽🏮🎰♨🗿🎪🎭📍🚩🇯🇵🇰🇷🇩🇪🇨🇳🇺🇸🇫🇷🇪🇸🇮🇹🇷🇺🇬🇧1⃣2⃣3⃣4⃣5⃣6⃣7⃣8⃣9⃣0⃣🔟🔢#⃣🔣⬆⬇⬅➡🔠🔡🔤↗↖↘↙↔↕🔄◀▶🔼🔽↩↪ℹ⏪⏩⏫⏬⤵⤴🆗🔀🔁🔂🆕🆙🆒🆓🆖📶🎦🈁🈯🈳🈵🈴🈲🉐🈹🈺🈶🈚🚻🚹🚺🚼🚾🚰🚮🅿♿🚭🈷🈸🈂Ⓜ🛂🛄🛅🛃🉑㊙㊗🆑🆘🆔🚫🔞📵🚯🚱🚳🚷🚸⛔✳❇❎✅✴💟🆚📳📴🅰🅱🆎🅾💠➿♻♈♉♊♋♌♍♎♏♐♑♒♓⛎🔯🏧💹💲💱©®™❌‼⁉❗❓❕❔⭕🔝🔚🔙🔛🔜🔃🕛🕧🕐🕜🕑🕝🕒🕞🕓🕟🕔🕠🕕🕖🕗🕘🕙🕚🕡🕢🕣🕤🕥🕦✖➕➖➗♠♥♣♦💮💯✔☑🔘🔗➰〰〽🔱◼◻◾◽▪▫🔺🔲🔳⚫⚪🔴🔵🔻⬜⬛🔶🔷🔸🔹"
 }
-},{}],24:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 var iChing = require('i-ching');
 
 
@@ -5250,7 +5681,7 @@ var help = exports.help = ` .. http://en.wikipedia.org/wiki/I_Ching `;
 
 
 //exports.iChing = iChing;
-},{"i-ching":31}],25:[function(require,module,exports){
+},{"i-ching":34}],28:[function(require,module,exports){
 var lib = exports;
 var util = require('util');
 var EventEmitter = require("events").EventEmitter;
@@ -5375,7 +5806,7 @@ var setGlobals = exports.setGlobals = () => {
     //Function
     Function.prototype.toJSON =  function(){ return this.toString()};
 }
-},{"./Gen":21,"./board":22,"./emoji.json":23,"./iching":24,"./logic":26,"./math":27,"./stats":28,"./string":29,"./vector2D":30,"ea-json":19,"events":5,"fs":1,"i-ching":31,"ini":34,"path":7,"util":17}],26:[function(require,module,exports){
+},{"./Gen":24,"./board":25,"./emoji.json":26,"./iching":27,"./logic":29,"./math":30,"./stats":31,"./string":32,"./vector2D":33,"ea-json":22,"events":5,"fs":1,"i-ching":34,"ini":37,"path":7,"util":17}],29:[function(require,module,exports){
 module.exports = {
 	nand(a, b) { return !(a && b) },
 	not(a) { return this.nand(a, a) },
@@ -5385,7 +5816,7 @@ module.exports = {
 	xor(a, b) { return this.and(this.nand(a, b), this.or(a, b)) },
 	xnor(a, b) { return this.not(this.xor(a, b)) }
 };
-},{}],27:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
 const PIE = exports.PIE = Math.PIE = 2*Math.PI;
 var deg = exports.deg = x => x * (PIE/360);
 var rad = exports.rad = alpha => alpha * (360/PIE);
@@ -5407,7 +5838,7 @@ var divisors = exports.divisors = n => {
     
 };
 
-},{}],28:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 var lib = require("./lib");
 
 class Stats {
@@ -5438,10 +5869,10 @@ class Stats {
 }
 
 module.exports = Stats;
-},{"./lib":25}],29:[function(require,module,exports){
+},{"./lib":28}],32:[function(require,module,exports){
 var bInt32 = exports.bInt32 = (i) => { var n=Math.abs(i); if(i<0)n-=1; n=n.toString(2).slice((i<0?1:0)).padStart(32,"0").split(""); n=n.map(b=>(b=="1"?(i<0?0:1):(i<0?1:0))).join(""); var c=bInt32.separator||""; return n.slice(0,7)+c+n.slice(8,15)+c+n.slice(16,23)+c+n.slice(24)};
 bInt32.separator = " ";
-},{}],30:[function(require,module,exports){
+},{}],33:[function(require,module,exports){
 var Vector2D = exports.Vector2D = class Vector2D {
     constructor(x,y) {
         this.x = x || 0;
@@ -5509,11 +5940,11 @@ var Vector2D = exports.Vector2D = class Vector2D {
         return "http://www.wolframalpha.com/input/?i=vector+" + encodeURI(v.map(v_ => v_.toString()).join(','));
     }
 };
-},{}],31:[function(require,module,exports){
+},{}],34:[function(require,module,exports){
 const iChing = require('./lib/i-ching.js');
 module.exports = iChing;
 
-},{"./lib/i-ching.js":33}],32:[function(require,module,exports){
+},{"./lib/i-ching.js":36}],35:[function(require,module,exports){
 module.exports={
   "trigrams": [
     {
@@ -7049,7 +7480,7 @@ module.exports={
   ]
 }
 
-},{}],33:[function(require,module,exports){
+},{}],36:[function(require,module,exports){
 'use strict';
 
 const data = require('./data.json');
@@ -7440,7 +7871,7 @@ function pad(num, size) {
 
 initialize();
 
-},{"./data.json":32,"lodash":36,"seedrandom":37,"util":17}],34:[function(require,module,exports){
+},{"./data.json":35,"lodash":40,"seedrandom":42,"util":17}],37:[function(require,module,exports){
 (function (process){
 exports.parse = exports.decode = decode
 
@@ -7638,7 +8069,30 @@ function unsafe (val, doUnesc) {
 }
 
 }).call(this,require('_process'))
-},{"_process":8}],35:[function(require,module,exports){
+},{"_process":8}],38:[function(require,module,exports){
+/*!
+ * Determine if an object is a Buffer
+ *
+ * @author   Feross Aboukhadijeh <https://feross.org>
+ * @license  MIT
+ */
+
+// The _isBuffer check is for Safari 5-7 support, because it's missing
+// Object.prototype.constructor. Remove this eventually
+module.exports = function (obj) {
+  return obj != null && (isBuffer(obj) || isSlowBuffer(obj) || !!obj._isBuffer)
+}
+
+function isBuffer (obj) {
+  return !!obj.constructor && typeof obj.constructor.isBuffer === 'function' && obj.constructor.isBuffer(obj)
+}
+
+// For Node v0.10 support. Remove this eventually.
+function isSlowBuffer (obj) {
+  return typeof obj.readFloatLE === 'function' && typeof obj.slice === 'function' && isBuffer(obj.slice(0, 0))
+}
+
+},{}],39:[function(require,module,exports){
 /*!
  * jQuery JavaScript Library v3.3.1
  * https://jquery.com/
@@ -18004,7 +18458,7 @@ if ( !noGlobal ) {
 return jQuery;
 } );
 
-},{}],36:[function(require,module,exports){
+},{}],40:[function(require,module,exports){
 (function (global){
 /**
  * @license
@@ -35105,7 +35559,169 @@ return jQuery;
 }.call(this));
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],37:[function(require,module,exports){
+},{}],41:[function(require,module,exports){
+(function(){
+  var crypt = require('crypt'),
+      utf8 = require('charenc').utf8,
+      isBuffer = require('is-buffer'),
+      bin = require('charenc').bin,
+
+  // The core
+  md5 = function (message, options) {
+    // Convert to byte array
+    if (message.constructor == String)
+      if (options && options.encoding === 'binary')
+        message = bin.stringToBytes(message);
+      else
+        message = utf8.stringToBytes(message);
+    else if (isBuffer(message))
+      message = Array.prototype.slice.call(message, 0);
+    else if (!Array.isArray(message))
+      message = message.toString();
+    // else, assume byte array already
+
+    var m = crypt.bytesToWords(message),
+        l = message.length * 8,
+        a =  1732584193,
+        b = -271733879,
+        c = -1732584194,
+        d =  271733878;
+
+    // Swap endian
+    for (var i = 0; i < m.length; i++) {
+      m[i] = ((m[i] <<  8) | (m[i] >>> 24)) & 0x00FF00FF |
+             ((m[i] << 24) | (m[i] >>>  8)) & 0xFF00FF00;
+    }
+
+    // Padding
+    m[l >>> 5] |= 0x80 << (l % 32);
+    m[(((l + 64) >>> 9) << 4) + 14] = l;
+
+    // Method shortcuts
+    var FF = md5._ff,
+        GG = md5._gg,
+        HH = md5._hh,
+        II = md5._ii;
+
+    for (var i = 0; i < m.length; i += 16) {
+
+      var aa = a,
+          bb = b,
+          cc = c,
+          dd = d;
+
+      a = FF(a, b, c, d, m[i+ 0],  7, -680876936);
+      d = FF(d, a, b, c, m[i+ 1], 12, -389564586);
+      c = FF(c, d, a, b, m[i+ 2], 17,  606105819);
+      b = FF(b, c, d, a, m[i+ 3], 22, -1044525330);
+      a = FF(a, b, c, d, m[i+ 4],  7, -176418897);
+      d = FF(d, a, b, c, m[i+ 5], 12,  1200080426);
+      c = FF(c, d, a, b, m[i+ 6], 17, -1473231341);
+      b = FF(b, c, d, a, m[i+ 7], 22, -45705983);
+      a = FF(a, b, c, d, m[i+ 8],  7,  1770035416);
+      d = FF(d, a, b, c, m[i+ 9], 12, -1958414417);
+      c = FF(c, d, a, b, m[i+10], 17, -42063);
+      b = FF(b, c, d, a, m[i+11], 22, -1990404162);
+      a = FF(a, b, c, d, m[i+12],  7,  1804603682);
+      d = FF(d, a, b, c, m[i+13], 12, -40341101);
+      c = FF(c, d, a, b, m[i+14], 17, -1502002290);
+      b = FF(b, c, d, a, m[i+15], 22,  1236535329);
+
+      a = GG(a, b, c, d, m[i+ 1],  5, -165796510);
+      d = GG(d, a, b, c, m[i+ 6],  9, -1069501632);
+      c = GG(c, d, a, b, m[i+11], 14,  643717713);
+      b = GG(b, c, d, a, m[i+ 0], 20, -373897302);
+      a = GG(a, b, c, d, m[i+ 5],  5, -701558691);
+      d = GG(d, a, b, c, m[i+10],  9,  38016083);
+      c = GG(c, d, a, b, m[i+15], 14, -660478335);
+      b = GG(b, c, d, a, m[i+ 4], 20, -405537848);
+      a = GG(a, b, c, d, m[i+ 9],  5,  568446438);
+      d = GG(d, a, b, c, m[i+14],  9, -1019803690);
+      c = GG(c, d, a, b, m[i+ 3], 14, -187363961);
+      b = GG(b, c, d, a, m[i+ 8], 20,  1163531501);
+      a = GG(a, b, c, d, m[i+13],  5, -1444681467);
+      d = GG(d, a, b, c, m[i+ 2],  9, -51403784);
+      c = GG(c, d, a, b, m[i+ 7], 14,  1735328473);
+      b = GG(b, c, d, a, m[i+12], 20, -1926607734);
+
+      a = HH(a, b, c, d, m[i+ 5],  4, -378558);
+      d = HH(d, a, b, c, m[i+ 8], 11, -2022574463);
+      c = HH(c, d, a, b, m[i+11], 16,  1839030562);
+      b = HH(b, c, d, a, m[i+14], 23, -35309556);
+      a = HH(a, b, c, d, m[i+ 1],  4, -1530992060);
+      d = HH(d, a, b, c, m[i+ 4], 11,  1272893353);
+      c = HH(c, d, a, b, m[i+ 7], 16, -155497632);
+      b = HH(b, c, d, a, m[i+10], 23, -1094730640);
+      a = HH(a, b, c, d, m[i+13],  4,  681279174);
+      d = HH(d, a, b, c, m[i+ 0], 11, -358537222);
+      c = HH(c, d, a, b, m[i+ 3], 16, -722521979);
+      b = HH(b, c, d, a, m[i+ 6], 23,  76029189);
+      a = HH(a, b, c, d, m[i+ 9],  4, -640364487);
+      d = HH(d, a, b, c, m[i+12], 11, -421815835);
+      c = HH(c, d, a, b, m[i+15], 16,  530742520);
+      b = HH(b, c, d, a, m[i+ 2], 23, -995338651);
+
+      a = II(a, b, c, d, m[i+ 0],  6, -198630844);
+      d = II(d, a, b, c, m[i+ 7], 10,  1126891415);
+      c = II(c, d, a, b, m[i+14], 15, -1416354905);
+      b = II(b, c, d, a, m[i+ 5], 21, -57434055);
+      a = II(a, b, c, d, m[i+12],  6,  1700485571);
+      d = II(d, a, b, c, m[i+ 3], 10, -1894986606);
+      c = II(c, d, a, b, m[i+10], 15, -1051523);
+      b = II(b, c, d, a, m[i+ 1], 21, -2054922799);
+      a = II(a, b, c, d, m[i+ 8],  6,  1873313359);
+      d = II(d, a, b, c, m[i+15], 10, -30611744);
+      c = II(c, d, a, b, m[i+ 6], 15, -1560198380);
+      b = II(b, c, d, a, m[i+13], 21,  1309151649);
+      a = II(a, b, c, d, m[i+ 4],  6, -145523070);
+      d = II(d, a, b, c, m[i+11], 10, -1120210379);
+      c = II(c, d, a, b, m[i+ 2], 15,  718787259);
+      b = II(b, c, d, a, m[i+ 9], 21, -343485551);
+
+      a = (a + aa) >>> 0;
+      b = (b + bb) >>> 0;
+      c = (c + cc) >>> 0;
+      d = (d + dd) >>> 0;
+    }
+
+    return crypt.endian([a, b, c, d]);
+  };
+
+  // Auxiliary functions
+  md5._ff  = function (a, b, c, d, x, s, t) {
+    var n = a + (b & c | ~b & d) + (x >>> 0) + t;
+    return ((n << s) | (n >>> (32 - s))) + b;
+  };
+  md5._gg  = function (a, b, c, d, x, s, t) {
+    var n = a + (b & d | c & ~d) + (x >>> 0) + t;
+    return ((n << s) | (n >>> (32 - s))) + b;
+  };
+  md5._hh  = function (a, b, c, d, x, s, t) {
+    var n = a + (b ^ c ^ d) + (x >>> 0) + t;
+    return ((n << s) | (n >>> (32 - s))) + b;
+  };
+  md5._ii  = function (a, b, c, d, x, s, t) {
+    var n = a + (c ^ (b | ~d)) + (x >>> 0) + t;
+    return ((n << s) | (n >>> (32 - s))) + b;
+  };
+
+  // Package private blocksize
+  md5._blocksize = 16;
+  md5._digestsize = 16;
+
+  module.exports = function (message, options) {
+    if (message === undefined || message === null)
+      throw new Error('Illegal argument ' + message);
+
+    var digestbytes = crypt.wordsToBytes(md5(message, options));
+    return options && options.asBytes ? digestbytes :
+        options && options.asString ? bin.bytesToString(digestbytes) :
+        crypt.bytesToHex(digestbytes);
+  };
+
+})();
+
+},{"charenc":20,"crypt":21,"is-buffer":38}],42:[function(require,module,exports){
 // A library of seedable RNGs implemented in Javascript.
 //
 // Usage:
@@ -35167,7 +35783,7 @@ sr.tychei = tychei;
 
 module.exports = sr;
 
-},{"./lib/alea":38,"./lib/tychei":39,"./lib/xor128":40,"./lib/xor4096":41,"./lib/xorshift7":42,"./lib/xorwow":43,"./seedrandom":44}],38:[function(require,module,exports){
+},{"./lib/alea":43,"./lib/tychei":44,"./lib/xor128":45,"./lib/xor4096":46,"./lib/xorshift7":47,"./lib/xorwow":48,"./seedrandom":49}],43:[function(require,module,exports){
 // A port of an algorithm by Johannes Baagøe <baagoe@baagoe.com>, 2010
 // http://baagoe.com/en/RandomMusings/javascript/
 // https://github.com/nquinlan/better-random-numbers-for-javascript-mirror
@@ -35283,7 +35899,7 @@ if (module && module.exports) {
 
 
 
-},{}],39:[function(require,module,exports){
+},{}],44:[function(require,module,exports){
 // A Javascript implementaion of the "Tyche-i" prng algorithm by
 // Samuel Neves and Filipe Araujo.
 // See https://eden.dei.uc.pt/~sneves/pubs/2011-snfa2.pdf
@@ -35388,7 +36004,7 @@ if (module && module.exports) {
 
 
 
-},{}],40:[function(require,module,exports){
+},{}],45:[function(require,module,exports){
 // A Javascript implementaion of the "xor128" prng algorithm by
 // George Marsaglia.  See http://www.jstatsoft.org/v08/i14/paper
 
@@ -35471,7 +36087,7 @@ if (module && module.exports) {
 
 
 
-},{}],41:[function(require,module,exports){
+},{}],46:[function(require,module,exports){
 // A Javascript implementaion of Richard Brent's Xorgens xor4096 algorithm.
 //
 // This fast non-cryptographic random number generator is designed for
@@ -35619,7 +36235,7 @@ if (module && module.exports) {
   (typeof define) == 'function' && define   // present with an AMD loader
 );
 
-},{}],42:[function(require,module,exports){
+},{}],47:[function(require,module,exports){
 // A Javascript implementaion of the "xorshift7" algorithm by
 // François Panneton and Pierre L'ecuyer:
 // "On the Xorgshift Random Number Generators"
@@ -35718,7 +36334,7 @@ if (module && module.exports) {
 );
 
 
-},{}],43:[function(require,module,exports){
+},{}],48:[function(require,module,exports){
 // A Javascript implementaion of the "xorwow" prng algorithm by
 // George Marsaglia.  See http://www.jstatsoft.org/v08/i14/paper
 
@@ -35806,7 +36422,7 @@ if (module && module.exports) {
 
 
 
-},{}],44:[function(require,module,exports){
+},{}],49:[function(require,module,exports){
 /*
 Copyright 2014 David Bau.
 
