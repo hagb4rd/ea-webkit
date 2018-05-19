@@ -4970,6 +4970,7 @@ function hasOwnProperty(obj, prop) {
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{"./support/isBuffer":16,"_process":8,"inherits":15}],18:[function(require,module,exports){
+(function (Buffer){
 
 //var request = require("request");
 //var rp = require("request-promise");
@@ -4983,7 +4984,9 @@ var lib = require("ea-lib");
 var bookmarklet = exports.bookmarklet = require("./lib/bookmarklet");
 //var WRGenerator = require("./lib/WRGenerator");
 
+var window=window||{};
 
+window.webkit=module.exports;
 
 exports.lib = lib;
 //Object.assign(exports, lib);
@@ -4994,15 +4997,14 @@ exports.querystring = querystring;
 exports.url = url;
 exports.path = path;
 exports.util = util;
+exports.Buffer = Buffer;
 
-var window = window || { document:{ querySelector: (s)=>undefined, querySelectorAll: (s)=>[]  }};
-
-var qs = exports.qs = (s, document=window.document) => document.querySelector(s)
-var qsa = exports.qsa = (s, document=window.document) => document.querySelectorAll(s)
+var qs = exports.qs = (function(s) { return this.querySelector(s); }).bind(window && window.document)
+var qsa = exports.qsa = (function(s) { return this.querySelectorAll(s); }).bind(window && window.document)
 
 exports.tags = function tags(...taglist) {
   var selectors = taglist.map(tag => `a[tags*=${tag}]`);
-  var xs = exports.qsa(selectors.join(","));
+  var xs = qsa(selectors.join(","));
   return xs;
 }
 
@@ -5049,9 +5051,10 @@ exports.base64 = {
 };
 
 if(typeof(window)!='undefined') {
-  Object.assign(window, lib, exports);
+  
 }
-},{"./lib/bookmarklet":19,"ea-lib":23,"events":5,"jquery":39,"path":7,"querystring":12,"url":13,"util":17}],19:[function(require,module,exports){
+}).call(this,require("buffer").Buffer)
+},{"./lib/bookmarklet":19,"buffer":4,"ea-lib":23,"events":5,"jquery":41,"path":7,"querystring":12,"url":13,"util":17}],19:[function(require,module,exports){
 const version = [1, 0, 2];
 const md5 = require('md5');
 
@@ -5348,7 +5351,7 @@ exports.minify = minify;
 
 var window = typeof(window) != 'undefined' ? window : {};
 window.bookmarks = exports;
-},{"md5":41}],20:[function(require,module,exports){
+},{"md5":43}],20:[function(require,module,exports){
 var charenc = {
   // UTF-8 encoding
   utf8: {
@@ -5577,7 +5580,7 @@ exports.sample = {
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer)
 },{"buffer":4}],23:[function(require,module,exports){
 module.exports = require("./lib/lib");
-},{"./lib/lib":28}],24:[function(require,module,exports){
+},{"./lib/lib":29}],24:[function(require,module,exports){
 var util = require('util');
 var EventEmitter = require("events").EventEmitter;
 //exports.story = story;
@@ -5587,7 +5590,7 @@ var lib = require('./lib');
 var Gen = function Gen(entries,event) {
     this.event=event||"emit"; 
     this.total=0; 
-    this.entries=Object.entries(entries)
+    this.entries=(Array.isArray(entries)?entries:Object.entries(entries))
         .sort((a,b)=>lib.cmp(b[1],a[1]))
         .map(([key,val],i)=>(
             val=parseInt(val,10),
@@ -5603,14 +5606,14 @@ var Gen = function Gen(entries,event) {
 Gen.prototype=new EventEmitter(); 
 Gen.prototype.next = function(n) { 
     var nxt=()=>{
-        var dice = lib.rand(1,this.total); 
+        var dice = lib.rand(1,this.total)(); 
         var result = this.entries.map(e=>e[1]).filter(x=>x.low<=dice&&dice<=x.high)[0];
         return result;
     }; 
     if(n) { 
-        return Array.from({length:(+n)},(v,k)=>nxt());
+        return Array.from({length:(+n)},(v,k)=>nxt().name);
     } else { 
-        return nxt() 
+        return nxt().name 
     }
 }
 Gen.help = Gen.prototype.help = '/* Weighted Random Generator: */ var {Gen} = require("ea-lib"); var statistics = {tree:12, girl: 23, car: 3}; var rnd = new Gen(statistics); [1,2,3,4,5].map(i=>[i,rnd.next()]);'
@@ -5619,7 +5622,7 @@ Gen.prototype.stats = function() { return this.entries.map(e=>[e[1].name,e[1].sc
 Gen.prototype.toJSON = function() { return JSON.stringify(this.stats()); }
 
 module.exports = Gen;
-},{"./lib":28,"events":5,"util":17}],25:[function(require,module,exports){
+},{"./lib":29,"events":5,"util":17}],25:[function(require,module,exports){
 //var matrix=(cols, rows) => { var i2xy=i=>({x:i%cols,y:Math.floor(i/cols)}); var xy2i=(x,y)=>y*cols+x; var mx=Array.from({length: cols*rows}, (e,i)=>i2xy(i)); var f=(x,y)=>{ if ((x<0||x>=this.cols)||(y<0||y>=this.rows)) return undefined;	return this[y*cols+x] }; mx.cols=cols; mx.rows=rows; f.mx=mx; return f.bind(f.mx);};
 var EventEmitter = require("events").EventEmitter;
 
@@ -5667,6 +5670,62 @@ module.exports={
     "all": "😄😃😀😊☺😉😍😘😚😗😙😜😝😛😳😁😔😌😒😞😣😢😂😭😪😥😰😅😓😩😫😨😱😠😡😤😖😆😋😷😎😴😵😲😟😦😧😈👿😮😬😐😕😯😶😇😏😑👲👳👮👷💂👶👦👧👨👩👴👵👱👼👸😺😸😻😽😼🙀😿😹😾👹👺🙈🙉🙊💀👽💩🔥✨🌟💫💥💢💦💧💤💨👂👀👃👅👄👍👎👌👊✊✌👋✋👐👆👇👉👈🙌🙏☝👏💪🚶🏃💃👫👪👬👭💏💑👯🙆🙅💁🙋💆💇💅👰🙎🙍🙇🎩👑👒👟👞👡👠👢👕👔👚👗🎽👖👘👙💼👜👝👛👓🎀🌂💄💛💙💜💚❤💔💗💓💕💖💞💘💌💋💍💎👤👥💬👣💭🐶🐺🐱🐭🐹🐰🐸🐯🐨🐻🐷🐽🐮🐗🐵🐒🐴🐑🐘🐼🐧🐦🐤🐥🐣🐔🐍🐢🐛🐝🐜🐞🐌🐙🐚🐠🐟🐬🐳🐋🐄🐏🐀🐃🐅🐇🐉🐎🐐🐓🐕🐖🐁🐂🐲🐡🐊🐫🐪🐆🐈🐩🐾💐🌸🌷🍀🌹🌻🌺🍁🍃🍂🌿🌾🍄🌵🌴🌲🌳🌰🌱🌼🌐🌞🌝🌚🌑🌒🌓🌔🌕🌖🌗🌘🌜🌛🌙🌍🌎🌏🌋🌌🌠⭐☀⛅☁⚡☔❄⛄🌀🌁🌈🌊🎍💝🎎🎒🎓🎏🎆🎇🎐🎑🎃👻🎅🎄🎁🎋🎉🎊🎈🎌🔮🎥📷📹📼💿📀💽💾💻📱☎📞📟📠📡📺📻🔊🔉🔈🔇🔔🔕📢📣⏳⌛⏰⌚🔓🔒🔏🔐🔑🔎💡🔦🔆🔅🔌🔋🔍🛁🛀🚿🚽🔧🔩🔨🚪🚬💣🔫🔪💊💉💰💴💵💷💶💳💸📲📧📥📤✉📩📨📯📫📪📬📭📮📦📝📄📃📑📊📈📉📜📋📅📆📇📁📂✂📌📎✒✏📏📐📕📗📘📙📓📔📒📚📖🔖📛🔬🔭📰🎨🎬🎤🎧🎼🎵🎶🎹🎻🎺🎷🎸👾🎮🃏🎴🀄🎲🎯🏈🏀⚽⚾🎾🎱🏉🎳⛳🚵🚴🏁🏇🏆🎿🏂🏊🏄🎣☕🍵🍶🍼🍺🍻🍸🍹🍷🍴🍕🍔🍟🍗🍖🍝🍛🍤🍱🍣🍥🍙🍘🍚🍜🍲🍢🍡🍳🍞🍩🍮🍦🍨🍧🎂🍰🍪🍫🍬🍭🍯🍎🍏🍊🍋🍒🍇🍉🍓🍑🍈🍌🍐🍍🍠🍆🍅🌽🏠🏡🏫🏢🏣🏥🏦🏪🏩🏨💒⛪🏬🏤🌇🌆🏯🏰⛺🏭🗼🗾🗻🌄🌅🌃🗽🌉🎠🎡⛲🎢🚢⛵🚤🚣⚓🚀✈💺🚁🚂🚊🚉🚞🚆🚄🚅🚈🚇🚝🚋🚃🚎🚌🚍🚙🚘🚗🚕🚖🚛🚚🚨🚓🚔🚒🚑🚐🚲🚡🚟🚠🚜💈🚏🎫🚦🚥⚠🚧🔰⛽🏮🎰♨🗿🎪🎭📍🚩🇯🇵🇰🇷🇩🇪🇨🇳🇺🇸🇫🇷🇪🇸🇮🇹🇷🇺🇬🇧1⃣2⃣3⃣4⃣5⃣6⃣7⃣8⃣9⃣0⃣🔟🔢#⃣🔣⬆⬇⬅➡🔠🔡🔤↗↖↘↙↔↕🔄◀▶🔼🔽↩↪ℹ⏪⏩⏫⏬⤵⤴🆗🔀🔁🔂🆕🆙🆒🆓🆖📶🎦🈁🈯🈳🈵🈴🈲🉐🈹🈺🈶🈚🚻🚹🚺🚼🚾🚰🚮🅿♿🚭🈷🈸🈂Ⓜ🛂🛄🛅🛃🉑㊙㊗🆑🆘🆔🚫🔞📵🚯🚱🚳🚷🚸⛔✳❇❎✅✴💟🆚📳📴🅰🅱🆎🅾💠➿♻♈♉♊♋♌♍♎♏♐♑♒♓⛎🔯🏧💹💲💱©®™❌‼⁉❗❓❕❔⭕🔝🔚🔙🔛🔜🔃🕛🕧🕐🕜🕑🕝🕒🕞🕓🕟🕔🕠🕕🕖🕗🕘🕙🕚🕡🕢🕣🕤🕥🕦✖➕➖➗♠♥♣♦💮💯✔☑🔘🔗➰〰〽🔱◼◻◾◽▪▫🔺🔲🔳⚫⚪🔴🔵🔻⬜⬛🔶🔷🔸🔹"
 }
 },{}],27:[function(require,module,exports){
+var EventTarget = function() {
+  this.listeners = {};
+};
+
+EventTarget.prototype.listeners = null;
+EventTarget.prototype.addEventListener = function(type, callback) {
+  if (!(type in this.listeners)) {
+    this.listeners[type] = [];
+  }
+  this.listeners[type].push(callback);
+};
+EventTarget.prototype.on = EventTarget.prototype.addEventListener;
+
+EventTarget.prototype.removeEventListener = function(type, callback) {
+  if (!(type in this.listeners)) {
+    return;
+  }
+  var stack = this.listeners[type];
+  for (var i = 0, l = stack.length; i < l; i++) {
+    if (stack[i] === callback){
+      stack.splice(i, 1);
+      return;
+    }
+  }
+};
+
+EventTarget.prototype.dispatchEvent = function(event, target) {
+  if(typeof(event) == "string") {
+    event = {
+      type: event,
+      defaultPrevented: false,
+      target: this
+    };
+  }
+  if(target) {
+    Object.assign(event, target);
+  }
+  if (!(event.type in this.listeners)) {
+    return true;
+  }
+  var stack = this.listeners[event.type];
+
+  for (var i = 0, l = stack.length; i < l; i++) {
+    var fn = stack[i];
+    if(fn.call) {
+      fn.call(this, event);
+    } else {
+      fn(event);
+    }
+  }
+  return !event.defaultPrevented;
+};
+EventTarget.prototype.emit = EventTarget.prototype.dispatchEvent;
+
+module.exports = EventTarget;
+},{}],28:[function(require,module,exports){
 var iChing = require('i-ching');
 
 
@@ -5681,12 +5740,15 @@ var help = exports.help = ` .. http://en.wikipedia.org/wiki/I_Ching `;
 
 
 //exports.iChing = iChing;
-},{"i-ching":34}],28:[function(require,module,exports){
+},{"i-ching":36}],29:[function(require,module,exports){
+(function (Buffer){
 var lib = exports;
 var util = require('util');
-var EventEmitter = require("events").EventEmitter;
+var EventEmitter = exports.EventEmitter = require("events").EventEmitter;
 var fs = require("fs");
-var path = require("path");
+var path = exports.path = require("path");
+var url = exports.url = require("url");
+var querystring = exports.querystring = require("querystring");
 var ini = exports.ini = require("ini");
 var json = exports.json = require("ea-json");
 var iChing = exports.iChing = require("i-ching");
@@ -5703,9 +5765,22 @@ var Gen = exports.Gen = require("./Gen");
 var board = exports.board = require("./board");
 var Stats = exports.Stats = require("./stats");
 var string = exports.string = require("./string");
+
+var list = exports.list = require("./list");
 var Vector2D = exports.Vector2D = require("./vector2D");
+var EventTarget = exports.EventTarget = require("./eventtarget");
+exports.Buffer = Buffer;
 
 //Promise.defer 
+
+//helpers
+var applyMixins = exports.applyMixins = function(derivedCtor, baseCtors) {
+    baseCtors.forEach(baseCtor => {
+        Object.getOwnPropertyNames(baseCtor.prototype).forEach(name => {
+            derivedCtor.prototype[name] = baseCtor.prototype[name];
+        });
+    });
+}
 
 var {abs,min, max,random,floor,ceil,sin,cos,pow} = Math;
 
@@ -5719,31 +5794,38 @@ var sleep = exports.sleep = (time,x) => {
 
 var xorString = exports.xorString = s => [...String(s)].reduce((prev, next) => prev ^= next.charCodeAt(0), 0xFF);
 
-var srand = exports.srand = (opts) => {
-    opts = opts || {};
+var seed = exports.seed = (s) => {
+    var opts = opts || {};
     var _a = opts.min || 0,
         _b = opts.max || 1,
-        cb = opts.cb || (x => Math.floor(x));
-    var seed = xorString(opts.seed || (new Date()));
+        cb = opts.cb || (x => x);
+    
     const X = 9301,
         A = 49297,
         M = 233280;
-    return (a, b) => (a = a || _a, b = b || _b, seed = (seed * X + A) % M, cb(min(a, b) + (seed / M) * (max(a, b)+1 - min(a, b))))
+    
+    var _seed = xorString(s || String(new Date()));
+    return {
+        count: 0,
+        get seed() { return _seed; },
+        random(a, b) { this.count++; return (a = a || _a, b = b || _b, _seed = (_seed * X + A) % M, cb(min(a, b) + (_seed / M) * (max(a, b) - min(a, b)))) }
+    }
 };
-srand.help = `var rnd = lib.srand({seed:666,min:1,max:6}); var K=lib.range(1,10000).map(x=>rnd()); lib.Stats.count(K)`;
 //var srand = (strseed, {min:defaultMin, max:defaultMax, callback}) => { defaultMin = defaultMin || 0; defaultMax = defaultMax || 1; callback = callback || (x=>x); var str = String(strseed||(new Date())).split(""); var seed = 0xFF, multiplicate = 9301, add = 49297, modulo = 233280; for (var i = 0; i < str.length; i++) seed ^= str[i].charCodeAt(0); return (a, b) => { a = a || 1;  b = b || 0;if(a==b) { if(a==0) { return 0; }; }; var max = Math.max([a,b]); var min = Math.min([a,b]); seed = (seed * multiplicate + add) % modulo; return callback(min + (seed / modulo) * (max - min)); } };
 var round = exports.round = (number, precision) => {
     precision = precision || 0;
     var factor = 10 ** precision;
     return Math.round(parseFloat(number) * factor) / factor;
 };
-var rand = exports.rand = function rand(a, b) {
-    if (typeof (b) == "undefined") {
-        a--
-    };
-    b = b || 0;
-    return floor(random() * (max(a, b)+1 - min(a, b))) + min(a, b)
+var rand = exports.rand = (a, b, cb=(x)=>Math.floor(x)) => () => {
+    
+    var min=Math.min(a,b),max=Math.max(a,b),diff=max-min;
+
+    return cb((rand.gen.random()*diff)+min)
+
 };
+rand.gen = Math;
+rand.help = ` \\ var lib=require('ea-lib'); Object.assign(global,lib,lib.lib); rand.gen=seed('hello world'); var w4=rand(1,4); var mystiq=()=>[rand(1,10), rand(77,88), rand(1000,2000), rand(10,20)][w4()](); range(1,10).map(mystiq); `
 
 var base=exports.base=(B)=>(...dx)=>{var arr=dx.map((v,i)=>[`${v}*(${B}^${(dx.length-1-i)})`, v*(2**(dx.length-1-i))]); console.log(` ${arr.map(x=>x[0]).join(" + ")} = `); return arr.map(x=>x[1]).reduce((a,b)=>a+b,0)}; 
 base.help = ` base(2)(1,0,0,1) -> `;
@@ -5775,10 +5857,7 @@ var range = exports.range = (a, b, step) => {
     return r;
 };
 // for (var r = []; r.length <= abs(b-a); r.push(min(a, b)+r.length*abs(step||1))) return r; };
-var shuffle = exports.shuffle = function shuffle(o) {
-    for (var j, x, i = o.length; i; j = Math.floor(Math.random() * i), x = o[--i], o[i] = o[j], o[j] = x);
-    return o;
-};
+var shuffle = exports.shuffle = function shuffle(o) {for(var j,x,i=o.length;i;j=Math.floor(rand.gen.random()*i),x=o[--i],o[i]=o[j],o[j]=x);return o;};
 var map = exports.map = function map(arr, f) {
     arr = Array.from(arr);
     var xs = new Array(arr.length);
@@ -5788,7 +5867,7 @@ var map = exports.map = function map(arr, f) {
 
 var objectify = exports.objectify = (keyCreator) => { keyCreator=keyCreator||((elem,index)=>index); var i=0; return (prev,next)=>((prev[keyCreator(next,i++)]=next,next),{}) };
 
-var zip=exports.zip=(...N)=>N.reduce((A,B)=>[].concat.apply([],A.map(a=>B.map(b=>[a,b])))).map(n=>[].concat.apply([],n))
+var zip=cartesian=exports.zip=exports.cartesian=(...N)=>N.reduce((A,B)=>[].concat.apply([],A.map(a=>B.map(b=>[a,b])))).map(n=>[].concat.apply([],n))
 zip.help=`var ABC=["A","B","C"], DEC=[1,2,3]; zip(ABC,DEC); // [['A',1],['A',2],['A',3],['B',1],['B',2],['B',3],['C',1],['C',2],['C',3]]`;
 
 
@@ -5797,16 +5876,86 @@ var modulo = exports.modulo = (a, n) => ((a % n) + n) % n;
 var ns = exports.ns = (literal, val, target) => { target=target||{}; if(typeof(val)=="undefined") val={}; var last; var path=literal.split('.'); var final=path.pop(); path.reduce((prev, next) => (last = prev[next] = {}, prev[next] ), target);  last[final] = val; return target; };
 ns.help = `ns('net.irc.kamuela','whoop whoop') --> { net: { irc: { kamuela: 'whoop whoop' } } } // namespace `
 
-var uniq = exports.uniq = (arr,equals) => { equals=equals||((a,b)=>a==b); var stack=[]; arr.forEach(entry=>{ if(!stack.some(setItem=>equals(setItem,entry))) { stack.push(entry); }}); return stack; }; 
-uniq.help = `uniq = (arr,equals) => { equals=equals||((a,b)=>a==b); var stack=[]; arr.forEach(entry=>{ if(!stack.some(setItem=>equals(setItem,entry))) { stack.push(entry); }}); return stack; };  //uniq(array,equals); equals(a,b) quality predicate function | default: ((a,b) => a==b)`;
+var compose = exports.compose = (f) => x => f.reduce((prev,nextFn)=>nextFn(prev), x);
+compose.help = `n> var compose=fs=>x=>fs.reduce((prev,nextFn)=>nextFn(prev),x), inc=()=>x=>++x, pow=(n=0)=>x=>x**n, arr=[0,1,2,3,4], f=inc(), g=pow(2); [arr.map(f).map(g), arr.map(compose([f,g]))] // ~> arr.map(x=>g(f(x)))`
 
+
+//var elementOf = exports.elementOf = (iterable,equals=((a,b)=>a==b)) => x => [...iterable].some(e=>equals(e,x));
+
+
+
+var elemOf=exports.elemOf=(A,equals=((a,b)=>a===b))=>x=>[...A].some(e=>equals(e,x));
+var uniq=exports.uniq=(iterable,elementOf)=>{ elementOf=elementOf||elemOf; return [...iterable].reduce((result, next)=>{ if(!elemOf(result)(next)) result.push(next); return result; },[]); };
+
+
+//var uniq = exports.uniq = (arr,equals) => { equals=equals||((a,b)=>a==b); var stack=[]; arr.forEach(entry=>{ if(!stack.some(setItem=>equals(setItem,entry))) { stack.push(entry); }}); return stack; };  //uniq(array,equals); equals(a,b) equality predicate function | default: ((a,b) => a==b)
+//uniq.help = `uniq = (arr,equals) => { equals=equals||((a,b)=>a==b); var stack=[]; arr.forEach(entry=>{ if(!stack.some(setItem=>equals(setItem,entry))) { stack.push(entry); }}); return stack; };  //uniq(array,equals); equals(a,b) equality predicate function | default: ((a,b) => a==b)`;
+
+
+var or=exports.or=(filters)=>x=>[...filters].some(filter=>filter(x));
+var and=exports.and=(filters)=>x=>[...filters].every(filter=>filter(x));
+
+var intersect=exports.intersect=(A,B)=>uniq(A.concat(B)).filter(and([elemOf(A),elemOf(B)]));
+intersect.help=`n> var or=(filters)=>x=>[...filters].some(filter=>filter(x)), and=(filters)=>x=>[...filters].every(filter=>filter(x)), elemOf=(A,equals=((a,b)=>a===b))=>x=>[...A].some(e=>equals(e,x)), uniq=(iterable,elementOf)=>{ elementOf=elementOf||elemOf; return [...iterable].reduce((result, next)=>{ if(!elemOf(result)(next)) result.push(next); return result; },[]); }, intersect=(A,B)=>uniq(A.concat(B)).filter(and([elemOf(A),elemOf(B)])); intersect([2,3,5,7],[1,2,3])`
+
+
+var groupBy=exports.groupBy=function(fn){ return Array.from(new Set(this.map(fn))).reduce((obj,next)=>(obj[next]=this.filter(x=>fn(x)==next),obj),{}) };
+groupBy.help=`n> var firstLetter=x=>x.slice(0,1); function(fn){ return Array.from(new Set(this.map(fn))).reduce((obj,next)=>(obj[next]=this.filter(x=>fn(x)==next),obj),{}) };  groupBy.call(["watermelon","banana"],firstLetter); `
+
+/*
+
+// INTERSECTION Based on high order equality predicate function
+// ----
+n> var or=(filters)=>x=>[...filters].some(filter=>filter(x)), and=(filters)=>x=>[...filters].every(filter=>filter(x)),  elemOf=(A,equals=((a,b)=>a===b))=>x=>[...A].some(e=>equals(e,x)), uniq=(iterable,elementOf)=>{ elementOf=elementOf||elemOf; return [...iterable].reduce((result, next)=>{ if(!elemOf(result)(next)) result.push(next); return result; },[]); }, intersect=(A,B)=>uniq(A.concat(B)).filter(and([elemOf(A),elemOf(B)])); intersect([2,3,5,7],[1,2,3])
+
+/* */
+
+
+
+
+
+// globals (NOT RECOMMENDED)
+// ---------
 var setGlobals = exports.setGlobals = () => {
     //Array
     Array.prototype.swap = function(posA,posB) { if(!this.length) throw new Error("No elements n Array");  if([posA,posB].some(pos=>pos<0||pos>=this.length)||posA==posB) throw new Error("spap(a,b): a & b must be unique keys in Array."); var a=this[posA],b=this[posB]; this[posA]=b; this[posB]=a; return this; }
     //Function
     Function.prototype.toJSON =  function(){ return this.toString()};
 }
-},{"./Gen":24,"./board":25,"./emoji.json":26,"./iching":27,"./logic":29,"./math":30,"./stats":31,"./string":32,"./vector2D":33,"ea-json":22,"events":5,"fs":1,"i-ching":34,"ini":37,"path":7,"util":17}],29:[function(require,module,exports){
+
+}).call(this,require("buffer").Buffer)
+},{"./Gen":24,"./board":25,"./emoji.json":26,"./eventtarget":27,"./iching":28,"./list":30,"./logic":31,"./math":32,"./stats":33,"./string":34,"./vector2D":35,"buffer":4,"ea-json":22,"events":5,"fs":1,"i-ching":36,"ini":39,"path":7,"querystring":12,"url":13,"util":17}],30:[function(require,module,exports){
+var list = module.exports = (iterable) => {
+  var items = [...iterable],
+    len = items.length,
+    current = 0;
+  return {
+    next: () => {
+      if (current < (len - 1)) current++;
+      else current = 0;
+      return items[current];
+    },
+    prev: () => {
+      if (current > 0) current--;
+      else current = (len - 1);
+      return items[current];
+    },
+    random: () => {
+      current = Math.floor(Math.random() * len);
+      return items[current];
+    },
+    goto: (index) => {
+      index=~(index|0);
+      current = (index > this.lastIndex() ? this.lastIndex() : index);
+      return this.current();
+    },
+    items: () => items,
+    current: () => items[current],
+    currentIndex: () => current,
+    lastIndex: () => len
+  }
+}
+},{}],31:[function(require,module,exports){
 module.exports = {
 	nand(a, b) { return !(a && b) },
 	not(a) { return this.nand(a, a) },
@@ -5816,14 +5965,14 @@ module.exports = {
 	xor(a, b) { return this.and(this.nand(a, b), this.or(a, b)) },
 	xnor(a, b) { return this.not(this.xor(a, b)) }
 };
-},{}],30:[function(require,module,exports){
+},{}],32:[function(require,module,exports){
 const PIE = exports.PIE = Math.PIE = 2*Math.PI;
 var deg = exports.deg = x => x * (PIE/360);
 var rad = exports.rad = alpha => alpha * (360/PIE);
 
 
 //var divisors = n =>{ var t1=Date.now(); var result=Array.from({length: Math.floor(n/2)},(e,i)=>i+1).filter(x=>n%x==0); var t2=Date.now(); console.log(`[brute force] computing divisors: ${n} .. ${t2-t1}ms `); return result; };
-var divisors = exports.divisors = n => {
+var divisors = exports.divisors = n => { 
     if(n==1) {
         return [n];
     } else {
@@ -5838,7 +5987,7 @@ var divisors = exports.divisors = n => {
     
 };
 
-},{}],31:[function(require,module,exports){
+},{}],33:[function(require,module,exports){
 var lib = require("./lib");
 
 class Stats {
@@ -5869,10 +6018,10 @@ class Stats {
 }
 
 module.exports = Stats;
-},{"./lib":28}],32:[function(require,module,exports){
+},{"./lib":29}],34:[function(require,module,exports){
 var bInt32 = exports.bInt32 = (i) => { var n=Math.abs(i); if(i<0)n-=1; n=n.toString(2).slice((i<0?1:0)).padStart(32,"0").split(""); n=n.map(b=>(b=="1"?(i<0?0:1):(i<0?1:0))).join(""); var c=bInt32.separator||""; return n.slice(0,7)+c+n.slice(8,15)+c+n.slice(16,23)+c+n.slice(24)};
 bInt32.separator = " ";
-},{}],33:[function(require,module,exports){
+},{}],35:[function(require,module,exports){
 var Vector2D = exports.Vector2D = class Vector2D {
     constructor(x,y) {
         this.x = x || 0;
@@ -5940,11 +6089,11 @@ var Vector2D = exports.Vector2D = class Vector2D {
         return "http://www.wolframalpha.com/input/?i=vector+" + encodeURI(v.map(v_ => v_.toString()).join(','));
     }
 };
-},{}],34:[function(require,module,exports){
+},{}],36:[function(require,module,exports){
 const iChing = require('./lib/i-ching.js');
 module.exports = iChing;
 
-},{"./lib/i-ching.js":36}],35:[function(require,module,exports){
+},{"./lib/i-ching.js":38}],37:[function(require,module,exports){
 module.exports={
   "trigrams": [
     {
@@ -7480,7 +7629,7 @@ module.exports={
   ]
 }
 
-},{}],36:[function(require,module,exports){
+},{}],38:[function(require,module,exports){
 'use strict';
 
 const data = require('./data.json');
@@ -7871,7 +8020,7 @@ function pad(num, size) {
 
 initialize();
 
-},{"./data.json":35,"lodash":40,"seedrandom":42,"util":17}],37:[function(require,module,exports){
+},{"./data.json":37,"lodash":42,"seedrandom":44,"util":17}],39:[function(require,module,exports){
 (function (process){
 exports.parse = exports.decode = decode
 
@@ -8069,7 +8218,7 @@ function unsafe (val, doUnesc) {
 }
 
 }).call(this,require('_process'))
-},{"_process":8}],38:[function(require,module,exports){
+},{"_process":8}],40:[function(require,module,exports){
 /*!
  * Determine if an object is a Buffer
  *
@@ -8092,7 +8241,7 @@ function isSlowBuffer (obj) {
   return typeof obj.readFloatLE === 'function' && typeof obj.slice === 'function' && isBuffer(obj.slice(0, 0))
 }
 
-},{}],39:[function(require,module,exports){
+},{}],41:[function(require,module,exports){
 /*!
  * jQuery JavaScript Library v3.3.1
  * https://jquery.com/
@@ -18458,7 +18607,7 @@ if ( !noGlobal ) {
 return jQuery;
 } );
 
-},{}],40:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
 (function (global){
 /**
  * @license
@@ -18474,7 +18623,7 @@ return jQuery;
   var undefined;
 
   /** Used as the semantic version number. */
-  var VERSION = '4.17.5';
+  var VERSION = '4.17.10';
 
   /** Used as the size to enable large array optimizations. */
   var LARGE_ARRAY_SIZE = 200;
@@ -18898,6 +19047,14 @@ return jQuery;
   /** Used to access faster Node.js helpers. */
   var nodeUtil = (function() {
     try {
+      // Use `util.types` for Node.js 10+.
+      var types = freeModule && freeModule.require && freeModule.require('util').types;
+
+      if (types) {
+        return types;
+      }
+
+      // Legacy `process.binding('util')` for Node.js < 10.
       return freeProcess && freeProcess.binding && freeProcess.binding('util');
     } catch (e) {}
   }());
@@ -35559,7 +35716,7 @@ return jQuery;
 }.call(this));
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],41:[function(require,module,exports){
+},{}],43:[function(require,module,exports){
 (function(){
   var crypt = require('crypt'),
       utf8 = require('charenc').utf8,
@@ -35721,7 +35878,7 @@ return jQuery;
 
 })();
 
-},{"charenc":20,"crypt":21,"is-buffer":38}],42:[function(require,module,exports){
+},{"charenc":20,"crypt":21,"is-buffer":40}],44:[function(require,module,exports){
 // A library of seedable RNGs implemented in Javascript.
 //
 // Usage:
@@ -35783,7 +35940,7 @@ sr.tychei = tychei;
 
 module.exports = sr;
 
-},{"./lib/alea":43,"./lib/tychei":44,"./lib/xor128":45,"./lib/xor4096":46,"./lib/xorshift7":47,"./lib/xorwow":48,"./seedrandom":49}],43:[function(require,module,exports){
+},{"./lib/alea":45,"./lib/tychei":46,"./lib/xor128":47,"./lib/xor4096":48,"./lib/xorshift7":49,"./lib/xorwow":50,"./seedrandom":51}],45:[function(require,module,exports){
 // A port of an algorithm by Johannes Baagøe <baagoe@baagoe.com>, 2010
 // http://baagoe.com/en/RandomMusings/javascript/
 // https://github.com/nquinlan/better-random-numbers-for-javascript-mirror
@@ -35899,7 +36056,7 @@ if (module && module.exports) {
 
 
 
-},{}],44:[function(require,module,exports){
+},{}],46:[function(require,module,exports){
 // A Javascript implementaion of the "Tyche-i" prng algorithm by
 // Samuel Neves and Filipe Araujo.
 // See https://eden.dei.uc.pt/~sneves/pubs/2011-snfa2.pdf
@@ -36004,7 +36161,7 @@ if (module && module.exports) {
 
 
 
-},{}],45:[function(require,module,exports){
+},{}],47:[function(require,module,exports){
 // A Javascript implementaion of the "xor128" prng algorithm by
 // George Marsaglia.  See http://www.jstatsoft.org/v08/i14/paper
 
@@ -36087,7 +36244,7 @@ if (module && module.exports) {
 
 
 
-},{}],46:[function(require,module,exports){
+},{}],48:[function(require,module,exports){
 // A Javascript implementaion of Richard Brent's Xorgens xor4096 algorithm.
 //
 // This fast non-cryptographic random number generator is designed for
@@ -36235,7 +36392,7 @@ if (module && module.exports) {
   (typeof define) == 'function' && define   // present with an AMD loader
 );
 
-},{}],47:[function(require,module,exports){
+},{}],49:[function(require,module,exports){
 // A Javascript implementaion of the "xorshift7" algorithm by
 // François Panneton and Pierre L'ecuyer:
 // "On the Xorgshift Random Number Generators"
@@ -36334,7 +36491,7 @@ if (module && module.exports) {
 );
 
 
-},{}],48:[function(require,module,exports){
+},{}],50:[function(require,module,exports){
 // A Javascript implementaion of the "xorwow" prng algorithm by
 // George Marsaglia.  See http://www.jstatsoft.org/v08/i14/paper
 
@@ -36422,7 +36579,7 @@ if (module && module.exports) {
 
 
 
-},{}],49:[function(require,module,exports){
+},{}],51:[function(require,module,exports){
 /*
 Copyright 2014 David Bau.
 

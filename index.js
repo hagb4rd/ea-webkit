@@ -11,7 +11,9 @@ var lib = require("ea-lib");
 var bookmarklet = exports.bookmarklet = require("./lib/bookmarklet");
 //var WRGenerator = require("./lib/WRGenerator");
 
+var window=window||{};
 
+window.webkit=module.exports;
 
 exports.lib = lib;
 //Object.assign(exports, lib);
@@ -22,15 +24,14 @@ exports.querystring = querystring;
 exports.url = url;
 exports.path = path;
 exports.util = util;
+exports.Buffer = Buffer;
 
-var window = window || { document:{ querySelector: (s)=>undefined, querySelectorAll: (s)=>[]  }};
-
-var qs = exports.qs = (s, document=window.document) => document.querySelector(s)
-var qsa = exports.qsa = (s, document=window.document) => document.querySelectorAll(s)
+var qs = exports.qs = (function(s) { return this.querySelector(s); }).bind(window && window.document)
+var qsa = exports.qsa = (function(s) { return this.querySelectorAll(s); }).bind(window && window.document)
 
 exports.tags = function tags(...taglist) {
   var selectors = taglist.map(tag => `a[tags*=${tag}]`);
-  var xs = exports.qsa(selectors.join(","));
+  var xs = qsa(selectors.join(","));
   return xs;
 }
 
@@ -77,5 +78,5 @@ exports.base64 = {
 };
 
 if(typeof(window)!='undefined') {
-  Object.assign(window, lib, exports);
+  
 }
