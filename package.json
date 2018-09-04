@@ -1,11 +1,11 @@
 {
   "name": "ea-webkit",
-  "version": "1.0.13",
+  "version": "1.0.15",
   "description": "browser toolkit",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "browserify index.js --standalone webkit > ./dist/webkit.js && uglifyjs -c -m --source-map -o ./dist/webkit.min.js -- ./dist/webkit.js"
+    "build": "browserify index.js --standalone $ > ./dist/webkit.js && uglifyjs -c -m --source-map -o ./dist/webkit.min.js -- ./dist/webkit.js"
   },
   "repository": {
     "type": "git",
@@ -22,7 +22,7 @@
   },
   "homepage": "https://github.com/hagb4rd/ea-webkit#readme",
   "dependencies": {
-    "ea-lib": "^1.0.30",
+    "ea-lib": "^1.0.35",
     "ini": "^1.3.5",
     "jquery": "^3.3.1",
     "md5": "^2.2.1"
