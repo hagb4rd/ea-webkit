@@ -1,6 +1,6 @@
 {
   "name": "ea-webkit",
-  "version": "1.0.17",
+  "version": "1.0.19",
   "description": "browser toolkit",
   "main": "index.js",
   "scripts": {
@@ -22,6 +22,7 @@
   },
   "homepage": "https://github.com/hagb4rd/ea-webkit#readme",
   "dependencies": {
+    "btoa": "^1.2.1",
     "ea-lib": "^1.0.35",
     "ini": "^1.3.5",
     "jquery": "^3.3.1",
