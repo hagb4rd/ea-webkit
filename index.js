@@ -47,6 +47,28 @@ var map = $.map = (iterable, f) => (isIterable(iterable)?[...iterable]:Object.en
 
 //$.lib = require("./functions");
 //$.keywords = require("./keywords");
+
+var main = async() => {
+  
+};
+var xorString = s => [...String(s)].reduce((prev, next) => prev ^= next.charCodeAt(0), 0xFF);
+var loadScript=$.loadScript=(url)=>{
+    return new Promise((resolve,reject)=>{
+        var scriptId='mk'+xorString(url);
+        var elem=document.querySelector('#'+scriptId);
+        if(elem) {
+            resolve();
+        } else {
+            elem = document.createElement('script');
+            elem.id=scriptId;
+            elem.setAttribute('async','');
+            elem.addEventListener('load',(e)=>resolve());
+            elem.addEventListener('error',(e)=>reject());
+            elem.src=url;
+            (document.body || document.rootElement || document).appendChild(elem);             
+        }
+    });
+};
 $.download = () => async(text, filename="text") => {
   filename=filename||lib.UUID()
   var element = document.createElement('a');
