@@ -10,6 +10,8 @@ var util = require("util");
 //var xhr = require("./lib/xhr");
 var lib = $.lib = require("ea-lib");
 Object.assign($,lib);
+var string = exports.string = require('./lib/string');
+
 var bookmarklet = $.bookmarklet = require("./lib/bookmarklet");
 
 $.querystring = querystring;
