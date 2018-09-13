@@ -8,24 +8,10 @@ var path = require("path");
 var querystring = $.querystring = require("querystring");
 var util = require("util");
 //var xhr = require("./lib/xhr");
-var lib = require("ea-lib");
+var lib = $.lib = require("ea-lib");
 Object.assign($,lib);
 var bookmarklet = $.bookmarklet = require("./lib/bookmarklet");
-//var WRGenerator = require("./lib/WRGenerator");
 
-/*
-var window=window||{};
-
-var module = module||{exports:{}};
-var exports = exports||module.exports;
-
-
-window.webkit=module.exports;
-*/
-
-//Object.assign(exports, lib);
-
-//$.EventEmitter = require("events").EventEmitter;
 $.querystring = querystring;
 $.url = url;
 $.path = path;
@@ -34,6 +20,18 @@ $.Buffer = Buffer;
 
 var qs = $.qs = (s,elem) => { elem=elem||document; return elem.querySelector(s); };
 var qsa = $.qsa = (s,elem) => { elem=elem||document; return Array.from(elem.querySelectorAll(s)); };
+
+var create = $.create = (tagName, attributes) => {
+  var elem = document.createElement(tagName);
+  /*
+  Object.entries(attributes).forEach(([k,v])=>{
+    elem.setAttribute(k,v);
+  })
+  
+  return elem;
+  */
+ return $(elem);
+}
 
 $.tags = function tags(...taglist) {
   var selectors = taglist.map(tag => `a[tags*=${tag}]`);
@@ -69,7 +67,7 @@ var loadScript=$.loadScript=(url)=>{
         }
     });
 };
-$.download = () => async(text, filename="text") => {
+var download = $.download = async(text, filename="text") => {
   filename=filename||lib.UUID()
   var element = document.createElement('a');
   

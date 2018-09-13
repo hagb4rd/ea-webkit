@@ -1,0 +1,87 @@
+<script>
+require = (function() {
+    
+    var path=new Map();
+    var modules=new Map();
+    var fetchMap=new Map();
+    
+    var require = async(moduleName) => {
+    
+        if(!modules.has(moduleName)) {
+            var module={ exports:{} };
+            modules.set(moduleName, module);
+            if(path.has(moduleName)) {
+                var url=path.get(moduleName);
+            } else {
+                var url=moduleName;
+            }
+            if(!fetchMap.has(moduleName)) {
+                var promisedModuleCode = fetch(url).then(resp=>resp.text());
+                fetchMap.set(moduleName, promisedModuleCode);
+            }
+            await fetchMap.get(moduleName).then(code=>{
+                return eval(`(function(require, module, exports) {
+                    ${code}
+                })(${require},${module},${module.exports})`);
+            });
+        } 
+        return modules.get(moduleName).exports;
+    };
+    return require;
+})();
+
+
+var giphy=String.raw`function (require,module,exports) {
+    //GiphyId: 3ohk2FsuYF0HBXnJ4Y
+    var website=(giphyId)=>"https://giphy.com/gifs/" + giphyId + "/media"
+    var source=(giphyId='3ohk2FsuYF0HBXnJ4Y')=>"https://media.giphy.com/media/" + giphyId + "/giphy.gif";
+    var mp4=(giphyId='3ohk2FsuYF0HBXnJ4Y')=>"https://media.giphy.com/media/" + giphyId + "/giphy.mp4";
+    var embed=(giphyId='3ohk2FsuYF0HBXnJ4Y')=>"https://giphy.com/embed/" + giphyId + "/";
+    var small=(giphyId='3ohk2FsuYF0HBXnJ4Y')=>"https://media.giphy.com/media/" + giphyId + "/200w_d.gif";
+}`;
+
+
+</script>
+
+   
+<iframe src="https://giphy.com/embed/" + giphyId + "" 
+    width="480" height="353" frameBorder="0" class="giphy-embed" allowFullScreen>
+</iframe>
+<p>
+    <a href="https://giphy.com/gifs/jenniferconnelly-" + giphyId + "">via GIPHY</a>
+</p>
+
+<div style="width:100%;height:0;padding-bottom:73%;position:relative;">
+    <iframe src="https://giphy.com/embed/" + giphyId + "" 
+        width="100%" height="100%" style="position:absolute" 
+        frameBorder="0" class="giphy-embed" allowFullScreen>
+    </iframe>
+</div>
+<p>
+    <a href="https://giphy.com/gifs/jenniferconnelly-" + giphyId + "">via GIPHY
+    </a>
+</p>
+
+
+<!-- runkit -->
+<a href="https://npm.runkit.com/stripe">
+	<img src="https://badge.runkitcdn.com/stripe.svg" alt="Try stripe on RunKit"/>
+</a>
+
+<a href="https://runkit.com/docs/value-viewers" alt="Simple Value Viewer API">Simple Value Viewer API</a>
+<a href="https://runkit.com/docs/embed" alt="">Embed Runkit On Your Website</a>
+
+<!-- add runkit script -->
+<script src="https://embed.runkit.com"></script>
+
+<!-- place anywhere else on your page -->
+<div id="runkit"></div>
+
+
+<script>
+// create insteance by specifying target DOM Element and initial source code text
+var notebook = RunKit.createNotebook({
+  element: document.querySelector("#runkit"),
+  source: `// GeoJSON!\nvar getJSON = require(\"async-get-json\");\n\nawait getJSON(\"https://storage.googleapis.com/maps-devrel/google.json\");`// specify the source of the notebook
+})
+</script>
