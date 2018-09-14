@@ -13,6 +13,8 @@ Object.assign($,lib);
 var string = exports.string = require('./lib/string');
 
 var bookmarklet = $.bookmarklet = require("./lib/bookmarklet");
+var gist = $.gist = require('./lib/gist');
+
 
 $.querystring = querystring;
 $.url = url;
