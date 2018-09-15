@@ -30,20 +30,23 @@ $.Buffer = Buffer;
 var qs = $.qs = (s,elem) => { elem=elem||document; return elem.querySelector(s); };
 var qsa = $.qsa = (s,elem) => { elem=elem||document; return Array.from(elem.querySelectorAll(s)); };
 
-var create = $.create = (tagName, attributes, data) => {
-  var elem = document.createElement(tagName);
+var create = $.create = (function(document) { 
+  return (tagName, attributes={}, data) => {
+    var elem = document.createElement(tagName);
 
-  Object.entries(attributes).forEach(([k,v])=>{
-    elem.setAttribute(k,v);
-  })
+    Object.entries(attributes).forEach(([k,v])=>{
+      elem.setAttribute(k,v);
+    })
 
-  Object.entries(data).forEach(([k,v])=>{
-    elem.dataset.set(k,v);
-  })
-  
-  return elem;
-}
-
+    if(data) {
+      Object.entries(data).forEach(([k,v])=>{
+        elem.dataset.set(k,v);
+      })
+    }
+    
+    return elem;
+  };
+})(window.document)
 
 
 
