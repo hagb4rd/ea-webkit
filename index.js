@@ -1,41 +1,52 @@
+global.window=global;
 //var request = require("request");
 //var rp = require("request-promise");
 var $ = module.exports = require('./lib/jquery');
+var lib = $.lib = require("ea-lib");
+Object.assign($,lib);
 
+var StyleSheet=$.StyleSheet=require('./lib/stylesheet');
+var loadScript=$.loadScript=require('./lib/loadscript');
+var toolbox=$.toolbox=require('./lib/toolbox');
+var gist=$.gist=require('./lib/gist');
 
 var url = $.url = require("url");
 var path = require("path");
 var querystring = $.querystring = require("querystring");
 var util = require("util");
 //var xhr = require("./lib/xhr");
-var lib = $.lib = require("ea-lib");
-Object.assign($,lib);
-var string = exports.string = require('./lib/string');
+
+//var string = exports.string = require('./lib/string');
 
 var bookmarklet = $.bookmarklet = require("./lib/bookmarklet");
-var gist = $.gist = require('./lib/gist');
+//var gist = $.gist = require('./lib/gist');
 
 
 $.querystring = querystring;
-$.url = url;
-$.path = path;
+//$.path = path;
 $.util = util;
 $.Buffer = Buffer;
 
 var qs = $.qs = (s,elem) => { elem=elem||document; return elem.querySelector(s); };
 var qsa = $.qsa = (s,elem) => { elem=elem||document; return Array.from(elem.querySelectorAll(s)); };
 
-var create = $.create = (tagName, attributes) => {
+var create = $.create = (tagName, attributes, data) => {
   var elem = document.createElement(tagName);
-  /*
+
   Object.entries(attributes).forEach(([k,v])=>{
     elem.setAttribute(k,v);
   })
+
+  Object.entries(data).forEach(([k,v])=>{
+    elem.dataset.set(k,v);
+  })
   
   return elem;
-  */
- return $(elem);
 }
+
+
+
+
 
 $.tags = function tags(...taglist) {
   var selectors = taglist.map(tag => `a[tags*=${tag}]`);
@@ -50,48 +61,11 @@ var map = $.map = (iterable, f) => (isIterable(iterable)?[...iterable]:Object.en
 //$.lib = require("./functions");
 //$.keywords = require("./keywords");
 
-var main = async() => {
-  
-};
-var xorString = s => [...String(s)].reduce((prev, next) => prev ^= next.charCodeAt(0), 0xFF);
-var loadScript=$.loadScript=(url)=>{
-    return new Promise((resolve,reject)=>{
-        var scriptId='mk'+xorString(url);
-        var elem=document.querySelector('#'+scriptId);
-        if(elem) {
-            resolve();
-        } else {
-            elem = document.createElement('script');
-            elem.id=scriptId;
-            elem.setAttribute('async','');
-            elem.addEventListener('load',(e)=>resolve());
-            elem.addEventListener('error',(e)=>reject());
-            elem.src=url;
-            (document.body || document.rootElement || document).appendChild(elem);             
-        }
-    });
-};
-var download = $.download = async(text, filename="text") => {
-  filename=filename||lib.UUID()
-  var element = document.createElement('a');
-  
-  if(typeof(text)=='object'){
-    if(!filename.endsWith('json'))
-      filename+=".json";
-    text=lib.json.stringify(text);
-  }
-  
-  element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
-  
-  element.setAttribute('download', filename);
 
-  element.style.display = 'none';
-  document.body.appendChild(element);
 
-  element.click();
+      
 
-  document.body.removeChild(element);
-}
+var download = $.download = require('./lib/download');
 $.base64 = {
   fromImage: function fromImage(image, outputFormat) {
 
