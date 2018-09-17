@@ -6,47 +6,33 @@ var lib = $.lib = require("ea-lib");
 Object.assign($,lib);
 
 var StyleSheet=$.StyleSheet=require('./lib/stylesheet');
+var dom = $.dom = require('./lib/dom');
+
+var css = $.css = require('./lib/css');
+
 var loadScript=$.loadScript=require('./lib/loadscript');
+
 var toolbox=$.toolbox=require('./lib/toolbox');
 var gist=$.gist=require('./lib/gist');
 
 var url = $.url = require("url");
 var path = require("path");
-var querystring = $.querystring = require("querystring");
+//var querystring = $.querystring = require("querystring");
 var util = require("util");
 //var xhr = require("./lib/xhr");
 
 //var string = exports.string = require('./lib/string');
 
 var bookmarklet = $.bookmarklet = require("./lib/bookmarklet");
+
 //var gist = $.gist = require('./lib/gist');
 
 
-$.querystring = querystring;
+//$.querystring = querystring;
 //$.path = path;
-$.util = util;
-$.Buffer = Buffer;
+//$.util = util;
+//$.Buffer = Buffer;
 
-var qs = $.qs = (s,elem) => { elem=elem||document; return elem.querySelector(s); };
-var qsa = $.qsa = (s,elem) => { elem=elem||document; return Array.from(elem.querySelectorAll(s)); };
-
-var create = $.create = (function(document) { 
-  return (tagName, attributes={}, data) => {
-    var elem = document.createElement(tagName);
-
-    Object.entries(attributes).forEach(([k,v])=>{
-      elem.setAttribute(k,v);
-    })
-
-    if(data) {
-      Object.entries(data).forEach(([k,v])=>{
-        elem.dataset.set(k,v);
-      })
-    }
-    
-    return elem;
-  };
-})(window.document)
 
 
 
@@ -104,3 +90,88 @@ $.base64 = {
     })
   }
 };
+
+
+(function(document, window, $) {
+  var qs = $.qs = (s,elem) => { elem=elem||document; return elem.querySelector(s); };
+  var qsa = $.qsa = (s,elem) => { elem=elem||document; return elem.querySelectorAll(s); };
+  Object.defineProperty($, "head", { get() { return document.head || document.getElementsByName('head')[0] || document.documentElement; }});
+  var importStyleSheet = $.importStyleSheet = url => $.create('link', {rel:"stylesheet", href: url})
+
+
+  var parse = $.parse = html => (new DOMParser()).parseFromString(html, "text/html");
+  var create = $.create = (tagName, attributes={}, data) => {
+    var elem = document.createElement(tagName);
+    elem.updateStyle = function(css={}) {
+      css=Object.assign({}, $.css, css)
+      try {
+        var classList=[...this.classList].map(className=>css[className]).filter(x=>!!x);
+        if(!this.rawStyle) {
+          rawStyle=Object.assign({},this.style);
+        }
+        //reset style first
+        Object.assign(this.style, this.rawStyle);
+
+        classList.forEach(style=>Object.assign(this.style, style));
+        
+      } catch(e) {
+        console.log(e);
+      }
+    }
+
+    /*
+    Object.defineProperty(elem,"_classList",Object.getOwnPropertyDescriptor(elem, "classList"));
+    Object.defineProperty(elem,"classList",{ get: () => {
+      var proxy = {
+        removeClass: (...args) => {
+          elem._classList.removeClass.apply(elem.classList, args);
+          elem.updateStyle();
+        },
+        addClass: (...args) => {
+          elem._classList.addClass.apply(elem.classList, args);
+          elem.updateStyle();
+        },
+        toggle: (...args) => {
+          elem._classList.toggle.apply(elem.classList, args);
+          elem.updateStyle();
+        }
+      };
+    */
+    var _classList = elem.classList;
+    elem.classList = new Proxy(_classList, {
+      get(targs, k) {
+        if(["addClass", "removeClass", "toggle"].includes(k)) {
+          requestAnimationFrame(()=>elem.updateStyle());
+        }
+        return _classList[k];
+      }
+    });
+
+    Object.entries(attributes).forEach(([k,v])=>{
+      elem.setAttribute(k,v);
+    });
+    
+    
+   
+    try {
+      if(data) {
+        Object.entries(data).forEach(([k,v])=>{
+          elem.dataset.set(k,v);
+        })
+      }
+    } catch (e) {
+      console.log(e);
+    }
+    elem.updateStyle();
+
+    if(!elem.appendTo) {
+      elem.appendTo = function(target) {
+        (target || document.rootElement || document.getElementsByTagName('body')[0]).append(elem);
+        return elem;    
+      }
+    }
+
+    return elem;
+  };
+})(window.document, window, $);
+

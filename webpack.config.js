@@ -3,10 +3,10 @@
 // --
 // webpack.config.js
 module.exports = {
-  entry: 'app/index.js',
+  entry: 'index.js',
   output: {
     path: 'dist/',
-    filename: 'bundle.js',
+    filename: 'webpack.js',
   },
   resolve: {
     modulesDirectories: ['node_modules', 'bower_components'],
