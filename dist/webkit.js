@@ -8429,7 +8429,7 @@ $.base64 = {
 var defaultCode=`var main=async()=>{
 	try {
 		var cdn = {
-			'$': 'https://iis/lib/webkit',
+			'$': 'https://cdn.rawgit.com/hagb4rd/ea-webkit/master/dist/webkit.min.js',
 			'requirejs':'https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.5/require.min.js',
 			'ace':'https://cdnjs.cloudflare.com/ajax/libs/ace/1.3.3/ace.js'
 		};
@@ -8456,20 +8456,12 @@ var bookmarkletURL=module.exports=(code)=>{
         if(elem) {
             resolve(elem);
         } else {
-            if(url.startsWith('css!')) {
-              elem=document.createElement('link');
-              elem.setAttribute("rel","stylesheet");
-              elem.href=url.slice(4);
-              elem.id=id;
-              resolve(elem);
-            } else {
               elem = document.createElement('script');
               elem.setAttribute('async','');
               elem.src=url;
               elem.id=id;
               elem.addEventListener('load',(e)=>resolve(e));
               elem.addEventListener('error',(e)=>reject(e));
-            }
         }
         (document.head || document.getElementsByTagName('head')[0] || document.documentElement).appendChild(elem);             
     })
@@ -9234,7 +9226,7 @@ module.exports = class StyleSheet {
 var loadScript=require('./loadscript');
 var toolbox=module.exports=async()=>{
     var cdn = {
-        '$': 'https://unpkg.com/ea-webkit',
+        '$': 'https://cdn.rawgit.com/hagb4rd/ea-webkit/master/dist/webkit.min.js',
         'requirejs':'https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.5/require.min.js',
         'ace':'https://cdnjs.cloudflare.com/ajax/libs/ace/1.3.3/ace.js',
         'hyperhtml':'https://unpkg.com/hyperhtml'
