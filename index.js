@@ -21,6 +21,8 @@ var path = require("path");
 var util = require("util");
 //var xhr = require("./lib/xhr");
 
+var escapeHTML=$.escapeHTML=(html)=>html.replace(/>/g, '&gt;').replace(/</g,'&lt;')
+
 //var string = exports.string = require('./lib/string');
 
 var bookmarklet = $.bookmarklet = require("./lib/bookmarklet");
@@ -137,6 +139,7 @@ $.base64 = {
         }
       };
     */
+   /*
     var _classList = elem.classList;
     elem.classList = new Proxy(_classList, {
       get(targs, k) {
@@ -146,7 +149,7 @@ $.base64 = {
         return _classList[k];
       }
     });
-
+    */
     Object.entries(attributes).forEach(([k,v])=>{
       elem.setAttribute(k,v);
     });
@@ -167,7 +170,6 @@ $.base64 = {
     if(!elem.appendTo) {
       elem.appendTo = function(target) {
         (target || document.rootElement || document.getElementsByTagName('body')[0]).append(elem);
-        return elem;    
       }
     }
 
