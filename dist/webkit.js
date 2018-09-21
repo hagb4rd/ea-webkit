@@ -8937,7 +8937,7 @@ gist.image = function (item) {
 
 
 
-
+gist.file=async(url,file)=>{ var id=$.gist.extractId(url); var gist = await $.gist.info(id); file=file||Object.entries(gist.files)[0][0]; return gist.files[file]; }; 
 
 gist.paste = async(text, name, description) => {
   var gist=new Gist({description: description});
@@ -9224,7 +9224,22 @@ module.exports = class StyleSheet {
 }
 },{"./download":44}],49:[function(require,module,exports){
 var loadScript=require('./loadscript');
-var toolbox=module.exports=async()=>{
+var gist=require('./gist');
+var toolbox=module.exports=async(url,file)=>{
+    url=url||'';
+    file=file||'';
+    var defaultCode = $.bookmarklet.defaultCode;
+    if(url) {
+        try {
+            var _gist=await gist.file(url,file); 
+            defaultCode = _gist.content;
+        } catch(e) {
+            console.log(e);
+        }  
+    };
+
+
+
     var cdn = {
         '$': 'https://cdn.rawgit.com/hagb4rd/ea-webkit/master/dist/webkit.min.js',
         'requirejs':'https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.5/require.min.js',
@@ -9253,11 +9268,14 @@ var toolbox=module.exports=async()=>{
     UI.append(btnBookmarklet);
     
     
-    var div=$.create('div',{id:'editor',class:"editor"});
-    div.innerHTML=$.escapeHTML($.bookmarklet.defaultCode);
+    var f=async()=>{ var uri=new URL(location.href); var url=uri.searchParams.get('url')||'https://gist.github.com/hagb4rd/6843803a6674fe1b9ead6f1e60f14f15'; url=decodeURIComponent(url); var file=uri.searchParams.get('file'); return (await gistFile(url,file)).content; }
+
+
+    var div=$.create('div',{id:'__editor',class:"editor"});
+    div.innerHTML=$.escapeHTML(defaultCode);
     UI.append(div);
     
-    var editor = window.editor = ace.edit("editor");
+    var editor = window.editor = ace.edit("__editor");
     editor.setTheme("ace/theme/monokai");
     editor.session.setMode("ace/mode/javascript");
 
@@ -9292,7 +9310,7 @@ var toolbox=module.exports=async()=>{
         link.animate([{ left: '1500px', color: 'rgba(230,0,0,0)' }, { left: '40px', color: 'rgba(230,0,0,1)' }], { fill: 'forwards', duration: 500, iterations: 1, easing: 'ease-out' });
     });
 };
-},{"./loadscript":47}],50:[function(require,module,exports){
+},{"./gist":45,"./loadscript":47}],50:[function(require,module,exports){
 var Stream = require("stream")
 var writeMethods = ["write", "end", "destroy"]
 var readMethods = ["resume", "pause"]
