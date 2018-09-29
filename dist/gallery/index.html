@@ -1,0 +1,62 @@
+<html>
+<head>
+<title>iGallery dev.Alpha</title>
+<link rel="shortcut icon" href="/images/favicon/cotton256.ico">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<style>
+.icons {
+  font-family: 'Material Icons';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;  /* Preferred icon size */
+  display: inline-block;
+  line-height: 1;
+  text-transform: none;
+  letter-spacing: normal;
+  word-wrap: normal;
+  white-space: nowrap;
+  direction: ltr;
+  /* Support for all WebKit browsers. */
+  -webkit-font-smoothing: antialiased;
+  /* Support for Safari and Chrome. */
+  text-rendering: optimizeLegibility;
+  /* Support for Firefox. */
+  -moz-osx-font-smoothing: grayscale;
+  /* Support for IE. */
+  font-feature-settings: 'liga';
+}
+</style>
+<link rel="stylesheet" href="gallery.css">
+<script src="https://unpkg.com/ea-webkit@latest/dist/webkit.min.js"></script>
+<script src="https://unpkg.com/ea-webkit@latest/dist/require-async.js"></script>
+<script src="https://unpkg.com/hyperhtml@latest"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/monokai.min.css">
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+<script>
+var require = {
+    paths: {
+
+        "moment": "http://momentjs.com/downloads/moment.min"
+        ,"webkit": "https://unpkg.com/ea-webkit@latest/dist/webkit.min"
+        ,"hyper": "https://unpkg.com/hyperhtml@latest"
+        ,"github": "https://unpkg.com/github-api/dist/GitHub.bundle.min"
+        // "imgur": "imgur.runkit",
+        // "gallery": "image.gallery",
+        // "iter": "iter",
+        // "ratio": "ratio",
+        // "style": "style",
+        // "base64": "base64",
+        // "display": "display",
+        // ,"ace": "http://cdnjs.cloudflare.com/ajax/libs/ace/1.3.3/ace"
+        ,"runkit": "https://embed.runkit.com"
+    }
+    ,waitSeconds: 0
+};
+</script>
+<!-- <script src="http://cdnjs.cloudflare.com/ajax/libs/ace/1.3.3/ace.js"></script> -->
+</head>
+<body>
+<div id="Frame"><!-- <img id="Display" src="https://i.imgur.com/CaMyslC.gif" /> --></div>
+<script data-main="main" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.5/require.min.js"></script>
+</body>
+</html>

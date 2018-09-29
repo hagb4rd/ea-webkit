@@ -1,9 +1,8 @@
 {
   "name": "ea-webkit",
-  "version": "1.0.40",
+  "version": "1.0.43",
   "description": "browser toolkit",
   "main": "index.js",
-  "unpkg": "dist/webkit.min.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "browserify index.js --standalone $ > ./dist/webkit.js && uglifyjs -c -m --source-map -o ./dist/webkit.min.js -- ./dist/webkit.js"
@@ -25,13 +24,13 @@
   "dependencies": {
     "amd-loader": "0.0.8",
     "btoa": "^1.2.1",
-    "ea-lib": "^1.0.41",
+    "ea-lib": "^1.0.46",
     "form-data": "^2.3.2",
     "ini": "^1.3.5",
     "jquery": "^3.3.1",
     "md5": "^2.2.1",
     "nconf": "^0.10.0",
-    "opn": "^5.3.0",
+    "opn": "^5.4.0",
     "server-destroy": "^1.0.1"
   },
   "devDependencies": {
