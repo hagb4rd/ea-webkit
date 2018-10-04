@@ -1,6 +1,6 @@
 {
   "name": "ea-webkit",
-  "version": "1.0.47",
+  "version": "1.0.48",
   "description": "browser toolkit",
   "main": "index.js",
   "scripts": {
@@ -31,7 +31,8 @@
     "md5": "^2.2.1",
     "nconf": "^0.10.0",
     "opn": "^5.4.0",
-    "server-destroy": "^1.0.1"
+    "server-destroy": "^1.0.1",
+    "uglify-es": "^3.3.9"
   },
   "devDependencies": {
     "npm-dollar": "^1.0.1"

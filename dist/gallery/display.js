@@ -84,19 +84,22 @@ define(function(require,exports, module) {
   }
 
   var Screen = exports.Screen = async(src) => {
+
+    var url=new URL(src);
+
     var regex=/\.(w+)$/gi;
     //var ext=||'.jpg';
     var MapExt = {
       Video: ['.wbem','.mp4'],
       Image: ['.jpg','.jpeg','.gif','.png','.tif','.bmp','.ico']
     };
-    
-    var create = {
-      Video: Video,
-      Image: Img
+
+    if(MapExt.Video.some(ext=>url.pathname.toLowerString().endsWith(ext))) {
+      var type='Video';
+    } else {
+      var type='Image';
     }
     
-    var type=Object.entries(MapExt).map(([type,extList])=>[extList.some(ext=>String(src).endsWith(ext)),type]).filter(([bool,type])=>bool)[0][1];
     var display=await create[type](src);
     
     return display;

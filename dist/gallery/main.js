@@ -23,7 +23,8 @@ define(function(require, exports, module) {
       } else {
         var json=url;
       }
-      var li=await iter(json)
+      var li=await Promise.resolve(json)
+          .then(iter)
           .then(list=>(window.li=list,list))
           .then(li=>{
             var controls = {
