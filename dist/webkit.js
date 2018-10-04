@@ -8432,7 +8432,7 @@ var {minify}=require('../uglify');
 var defaultCode=`var main=async()=>{
 	try {
 		var cdn = {
-			'$': 'https://cdn.rawgit.com/hagb4rd/ea-webkit/master/dist/webkit.min.js',
+			'$': 'https://unpkg.com/ea-webkit@latest/dist/webkit.js',
 			'requirejs':'https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.5/require.min.js',
 			'ace':'https://cdnjs.cloudflare.com/ajax/libs/ace/1.3.3/ace.js'
 		};
@@ -8477,7 +8477,7 @@ var bookmarkletURL=module.exports=(code)=>{
   //var dataURL=`data:application/javascript;data:application/javascript;base64,${base64encoded}`;
   //var href = `javascript:(function(){var s=document.createElement("script");s.src="${dataURL}";document.body.append(s)})()`
 
-  var href = `javascript:${minify(template(code)).code.slice(1)}`;
+  var href = `javascript:${minify(template(code)).code}`;
 	
 	return href;
 }
@@ -8688,11 +8688,12 @@ var mimeTypes = require('mime-types'),
   qs = require('querystring'),
   URL = require('url'),
   util = require('util');
+  var {prettify} = require('ea-lib');
   //beautify = require('js-prettify');
 
 
 var serialize=(o)=>String(o);
-var beautify=(o)=>o;
+var beautify=(o)=>prettify(o);
 var prettify=beautify;
 //var fetch = require("node-fetch");
 //var prettify=require('js-prettify')
@@ -8994,7 +8995,7 @@ gist.fetch = async(link) => {
 
 gist.user = (user='hagb4rd') => {
   var url=`https://api.github.com/users/${user}/gists`;
-  return fetch(`${base}/${id}`).then(resp=>resp.json);
+  return fetch(url).then(resp=>resp.json);
 }
 
 
@@ -9098,7 +9099,7 @@ gist.stringify = async(object) => `http://jslave.herokuapp.com/gist/${gist.extra
 gist.Gist = Gist;
 
 module.exports = gist;
-},{"mime-types":98,"querystring":17,"url":35,"util":39}],46:[function(require,module,exports){
+},{"ea-lib":53,"mime-types":98,"querystring":17,"url":35,"util":39}],46:[function(require,module,exports){
 var $ = module.exports = function $(container, selector) {
     const els =
       typeof selector === 'string'
@@ -9230,22 +9231,21 @@ module.exports = class StyleSheet {
 var loadScript=require('./loadscript');
 var gist=require('./gist');
 var toolbox=module.exports=async(url,file)=>{
-    url=url||'';
-    file=file||'';
+    url=url||'https://gist.github.com/hagb4rd/6843803a6674fe1b9ead6f1e60f14f15';
+    file=file||'toobox.js';
     var defaultCode = $.bookmarklet.defaultCode;
-    if(url) {
+
         try {
             var _gist=await gist.file(url,file); 
             defaultCode = _gist.content;
         } catch(e) {
             console.log(e);
         }  
-    };
 
 
 
     var cdn = {
-        '$': 'https://cdn.rawgit.com/hagb4rd/ea-webkit/master/dist/webkit.min.js',
+        '$': 'https://unpkg.com/ea-webkit@latest/dist/webkit.min.js',
         'requirejs':'https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.5/require.min.js',
         'ace':'https://cdnjs.cloudflare.com/ajax/libs/ace/1.3.3/ace.js',
         'hyperhtml':'https://unpkg.com/hyperhtml'
@@ -9272,7 +9272,13 @@ var toolbox=module.exports=async(url,file)=>{
     UI.append(btnBookmarklet);
     
     
-    var f=async()=>{ var uri=new URL(location.href); var url=uri.searchParams.get('url')||'https://gist.github.com/hagb4rd/6843803a6674fe1b9ead6f1e60f14f15'; url=decodeURIComponent(url); var file=uri.searchParams.get('file'); return (await gistFile(url,file)).content; }
+    var f=async()=>{ 
+        var uri=new URL(location.href); 
+        var url=uri.searchParams.get('url')||'https://gist.github.com/hagb4rd/6843803a6674fe1b9ead6f1e60f14f15'; 
+        url=decodeURIComponent(url); 
+        var file=uri.searchParams.get('file')||'toolbox.js'; 
+        return (await gist.file(url,file)).content; 
+    }
 
 
     var div=$.create('div',{id:'__editor',class:"editor"});
@@ -9292,6 +9298,7 @@ var toolbox=module.exports=async(url,file)=>{
     });
 
     btnBookmarklet.addEventListener('click', function () {
+        debugger;
         var span = document.querySelector('#dragme') || document.createElement('span');
         span.id = 'dragme';
         var style = {
@@ -9307,7 +9314,11 @@ var toolbox=module.exports=async(url,file)=>{
         }
         Object.assign(span.style, style);
         var link = document.querySelector("#dragme a") || document.createElement("a");
-        link.href = $.bookmarklet(editor.session.getValue());
+        var code=editor.session.toString();
+        console.log('code:\n',code)
+        var href=$.bookmarklet(code);
+        console.log('minified:\n',href);
+        link.href = href;
         link.innerHTML = "drag-me-to-your-toolbar";
         span.appendChild(link);
         UI.appendChild(span);
