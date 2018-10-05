@@ -9382,6 +9382,12 @@ var toolbox=module.exports=async(url,file)=>{
         UI.appendChild(span);
         link.animate([{ left: '1500px', color: 'rgba(230,0,0,0)' }, { left: '40px', color: 'rgba(230,0,0,1)' }], { fill: 'forwards', duration: 500, iterations: 1, easing: 'ease-out' });
     });
+
+    return {
+        editor: editor,
+        btnToolbox: btnToolbox,
+        btnBookmarklet
+    }
 };
 },{"./gist":45,"./loadscript":47,"./uglify":50,"ea-lib":53}],50:[function(require,module,exports){
 (function (global,Buffer){
