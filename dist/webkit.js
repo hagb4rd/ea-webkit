@@ -9345,10 +9345,10 @@ var toolbox=module.exports=async(url,file)=>{
 
 
     
-    var btn=document.querySelector('#bToolbox')||$.create('button',{id:'bToolbox',value:'toolbox',class:"btnToolbox"});
-    btn.innerHTML='toolbox';
-    document.body.append(btn);
-    btn.addEventListener('click', e=>{
+    var btnToolbox=document.querySelector('#bToolbox')||$.create('button',{id:'bToolbox',value:'toolbox',class:"btnToolbox"});
+    btnToolbox.innerHTML='toolbox';
+    document.body.append(btnToolbox);
+    btnToolbox.addEventListener('click', e=>{
         UI.toggle()
     });
 
@@ -9383,11 +9383,11 @@ var toolbox=module.exports=async(url,file)=>{
         link.animate([{ left: '1500px', color: 'rgba(230,0,0,0)' }, { left: '40px', color: 'rgba(230,0,0,1)' }], { fill: 'forwards', duration: 500, iterations: 1, easing: 'ease-out' });
     });
 
-    return {
-        editor: editor,
-        btnToolbox: btnToolbox,
-        btnBookmarklet
-    }
+    UI.editor=editor;
+    UI.btnToolbox=btnToolbox;
+    UI.btnBookmarklet=btnBookmarklet;
+
+    return UI;
 };
 },{"./gist":45,"./loadscript":47,"./uglify":50,"ea-lib":53}],50:[function(require,module,exports){
 (function (global,Buffer){
