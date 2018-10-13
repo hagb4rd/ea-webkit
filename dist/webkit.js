@@ -8477,7 +8477,7 @@ var bookmarkletURL=module.exports=(code)=>{
   //var dataURL=`data:application/javascript;data:application/javascript;base64,${base64encoded}`;
   //var href = `javascript:(function(){var s=document.createElement("script");s.src="${dataURL}";document.body.append(s)})()`
 
-  var href = `javascript:${minify(template(code)).code}`;
+  var href = `javascript:(function(){${minify(template(code)).code}})();`;
 	
 	return href;
 }
