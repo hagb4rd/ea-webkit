@@ -1,6 +1,6 @@
 {
   "name": "ea-webkit",
-  "version": "1.0.58",
+  "version": "1.0.59",
   "description": "browser toolkit",
   "main": "index.js",
   "scripts": {
