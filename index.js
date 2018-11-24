@@ -5,6 +5,8 @@ var $ = module.exports = require('./lib/jquery');
 var lib = $.lib = require("ea-lib");
 Object.assign($,lib);
 
+var minify = $.minify = require('./lib/uglify').minify;
+
 var StyleSheet=$.StyleSheet=require('./lib/stylesheet');
 var dom = $.dom = require('./lib/dom');
 
@@ -26,6 +28,7 @@ var escapeHTML=$.escapeHTML=(html)=>html.replace(/>/g, '&gt;').replace(/</g,'&lt
 //var string = exports.string = require('./lib/string');
 
 var bookmarklet = $.bookmarklet = require("./lib/bookmarklet");
+var favicon =   $.favicon = require('./lib/favicon');
 
 //var gist = $.gist = require('./lib/gist');
 
@@ -169,7 +172,7 @@ $.base64 = {
 
     if(!elem.appendTo) {
       elem.appendTo = function(target) {
-        (target || document.rootElement || document.getElementsByTagName('body')[0]).append(elem);
+        (target || document.getElementsByTagName('body')[0]).append(elem);
       }
     }
 
