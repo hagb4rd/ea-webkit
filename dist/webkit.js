@@ -6987,6 +6987,7 @@ const defaults = {
   quote: '"',
   raw: false,
   separator: ',',
+  skipComments: false,
   skipLines: null,
   maxRowBytes: Number.MAX_SAFE_INTEGER,
   strict: false
@@ -7104,6 +7105,14 @@ class CsvParser extends Transform {
     let isQuoted = false
     let offset = start
 
+    const { skipComments } = this
+    if (skipComments) {
+      const char = typeof skipComments === 'string' ? skipComments : '#'
+      if (buf[start] === bufferFrom(char)[0]) {
+        return
+      }
+    }
+
     const mapValue = (value) => {
       if (this._first) {
         return value
@@ -7146,7 +7155,7 @@ class CsvParser extends Transform {
       cells.push(this._empty)
     }
 
-    const skip = this.skipLines && this.skipLines !== this._line
+    const skip = this.skipLines && this.skipLines > this._line
     this._line++
 
     if (this._first && !skip) {
@@ -7161,7 +7170,7 @@ class CsvParser extends Transform {
       const e = new RangeError('Row length does not match headers')
       this.emit('error', e)
     } else {
-      if (!this._first) this._emit(this._Row, cells)
+      if (!skip) this._emit(this._Row, cells)
     }
   }
 
@@ -8194,8 +8203,8 @@ module.exports = {
 };
 },{}],35:[function(require,module,exports){
 const PIE = exports.PIE = Math.PIE = 2*Math.PI;
-var deg = exports.deg = x => x * (PIE/360);
-var rad = exports.rad = alpha => alpha * (360/PIE);
+var deg = exports.deg = x => x/Math.PI*180;
+var rad = exports.rad = alpha => alpha*Math.PI/180;
 
 
 //var divisors = n =>{ var t1=Date.now(); var result=Array.from({length: Math.floor(n/2)},(e,i)=>i+1).filter(x=>n%x==0); var t2=Date.now(); console.log(`[brute force] computing divisors: ${n} .. ${t2-t1}ms `); return result; };
@@ -8363,6 +8372,8 @@ var UUID = module.exports = () => { var s4=()=>Math.floor((1+Math.random())*0x10
 },{}],41:[function(require,module,exports){
 var {inspect}=require('util');
 
+var {deg,rad}=require('./math');
+
 class Vector extends Array {
 
   constructor(array) {
@@ -8403,6 +8414,9 @@ class Vector extends Array {
       return new Vector([x||0,...yz]);
     }
   }
+  static createNormByAngle(degree) {
+    return this.create([Math.cos(rad(degree)),Math.sin(rad(degree))]);
+  }
 
   static scale(k, v) {
     return Vector.create(v.map((a,i)=>k*a));
@@ -8415,7 +8429,8 @@ class Vector extends Array {
   }
 
   static subtract(...vs) {
-    return vs.reduce((v1,v2)=>v1.subtract(v2), Vector.create(new Array(vs[0].length)).fill(0));
+    var v3=Vector.create(vs[0]);
+    return vs.slice(1).reduce((v1,v2)=>v1.subtract(v2),v3);
   }
 
   subtract(v) {
@@ -8436,7 +8451,7 @@ class Vector extends Array {
   }
 
   static dot(v1, v2) {
-    return Vector.create(v1.map((a,i)=>v1[i]*v2[i]));
+    return v1.map((a,i)=>v1[i]*v2[i]).reduce((a,b)=>a+b);
   }
 
   dot(v2) {
@@ -8444,20 +8459,26 @@ class Vector extends Array {
   }
 
   static size(v) {
-    return Vector.length(v);
-  }
-  static length(v) {
     return Math.sqrt(v.reduce((sum,a)=>sum+a*a,0));
   }
 
   get size() {
-    return Vector.length(this)
+    return Vector.size(this)
   }
 
   static norm(v) {
-    let length = Vector.size(v);
-    let div = (length === 0) ? Infinity : 1.0 / length;
-    return Vector.scale(div, v);
+    var len = v.size;
+    var k = (len === 0) 
+      ? 0 
+      : 1.0 / len;
+    return Vector.scale(k, v);
+  }
+
+  get angle() {
+    return Vector.angle(this);
+  }
+  static angle(v) {
+    return deg(Math.acos(v.norm()[0]));
   }
 
   norm() {
@@ -8472,7 +8493,7 @@ class Vector extends Array {
     ]);
   }
 
-  cross(v2) {
+  cross(v2) {m
     return Vector.cross(this, v2);
   }
 
@@ -8502,8 +8523,17 @@ class Matrix {
         } else {
           this.rows=Array.from({length:rows},(e,i)=>new Vector(cols));
         }
+        Object.assign(this,this.rows);
+        this.length=this.rows.length;
     }
-    static create3DRotation(roll, pitch, yaw) {
+    [Symbol.iterator]() {
+      return this.rows[Symbol.iterator]();
+    }
+    static rotation3D(roll=0, pitch=0, yaw=0) {
+
+      roll=rad(roll);
+      pitch=rad(pitch);
+      yaw=rad(yaw);
 	
       var {cos, sin} = Math;
     
@@ -8520,8 +8550,9 @@ class Matrix {
         [-sinb, cosb*sinc, cosb*cosc]
       ]);
     }
-    static create2DRotation(phi) {
+    static rotation2D(phi=0) {
       
+      phi=rad(phi);
       var {cos, sin} = Math;
 
       var cosP=cos(phi);
@@ -8532,7 +8563,7 @@ class Matrix {
         [sinP, cosP]
       ]);
     }
-    times(v1) {
+    multiplicate(v1) {
       return Vector.create(this.rows.map(row=>Vector.dot(row,v1)));
     }
 }
@@ -8540,7 +8571,7 @@ class Matrix {
 exports.Vector = Vector;
 exports.Matrix = Matrix;
 exports.v = function(){ return Vector.create.apply(Vector, arguments); }
-},{"util":124}],42:[function(require,module,exports){
+},{"./math":35,"util":124}],42:[function(require,module,exports){
 var Vector2D = exports.Vector2D = class Vector2D {
     constructor(x,y) {
         this.x = x || 0;
@@ -19470,6 +19501,10 @@ module.exports={
     "source": "iana",
     "extensions": ["exi"]
   },
+  "application/expect-ct-report+json": {
+    "source": "iana",
+    "compressible": true
+  },
   "application/fastinfoset": {
     "source": "iana"
   },
@@ -19923,10 +19958,12 @@ module.exports={
     "extensions": ["mxf"]
   },
   "application/n-quads": {
-    "source": "iana"
+    "source": "iana",
+    "extensions": ["nq"]
   },
   "application/n-triples": {
-    "source": "iana"
+    "source": "iana",
+    "extensions": ["nt"]
   },
   "application/nasdata": {
     "source": "iana"
@@ -19964,6 +20001,10 @@ module.exports={
   "application/oda": {
     "source": "iana",
     "extensions": ["oda"]
+  },
+  "application/odm+xml": {
+    "source": "iana",
+    "compressible": true
   },
   "application/odx": {
     "source": "iana"
@@ -20012,6 +20053,9 @@ module.exports={
     "extensions": ["pdf"]
   },
   "application/pdx": {
+    "source": "iana"
+  },
+  "application/pem-certificate-chain": {
     "source": "iana"
   },
   "application/pgp-encrypted": {
@@ -20481,6 +20525,9 @@ module.exports={
     "compressible": true,
     "extensions": ["tei","teicorpus"]
   },
+  "application/tetra_isi": {
+    "source": "iana"
+  },
   "application/thraud+xml": {
     "source": "iana",
     "compressible": true,
@@ -20517,6 +20564,12 @@ module.exports={
     "compressible": true
   },
   "application/tve-trigger": {
+    "source": "iana"
+  },
+  "application/tzif": {
+    "source": "iana"
+  },
+  "application/tzif-leap": {
     "source": "iana"
   },
   "application/ulpfec": {
@@ -20582,11 +20635,31 @@ module.exports={
   "application/vnd.3gpp.mc-signalling-ear": {
     "source": "iana"
   },
+  "application/vnd.3gpp.mcdata-affiliation-command+xml": {
+    "source": "iana",
+    "compressible": true
+  },
+  "application/vnd.3gpp.mcdata-info+xml": {
+    "source": "iana",
+    "compressible": true
+  },
   "application/vnd.3gpp.mcdata-payload": {
     "source": "iana"
   },
+  "application/vnd.3gpp.mcdata-service-config+xml": {
+    "source": "iana",
+    "compressible": true
+  },
   "application/vnd.3gpp.mcdata-signalling": {
     "source": "iana"
+  },
+  "application/vnd.3gpp.mcdata-ue-config+xml": {
+    "source": "iana",
+    "compressible": true
+  },
+  "application/vnd.3gpp.mcdata-user-profile+xml": {
+    "source": "iana",
+    "compressible": true
   },
   "application/vnd.3gpp.mcptt-affiliation-command+xml": {
     "source": "iana",
@@ -20608,7 +20681,55 @@ module.exports={
     "source": "iana",
     "compressible": true
   },
+  "application/vnd.3gpp.mcptt-service-config+xml": {
+    "source": "iana",
+    "compressible": true
+  },
   "application/vnd.3gpp.mcptt-signed+xml": {
+    "source": "iana",
+    "compressible": true
+  },
+  "application/vnd.3gpp.mcptt-ue-config+xml": {
+    "source": "iana",
+    "compressible": true
+  },
+  "application/vnd.3gpp.mcptt-ue-init-config+xml": {
+    "source": "iana",
+    "compressible": true
+  },
+  "application/vnd.3gpp.mcptt-user-profile+xml": {
+    "source": "iana",
+    "compressible": true
+  },
+  "application/vnd.3gpp.mcvideo-affiliation-command+xml": {
+    "source": "iana",
+    "compressible": true
+  },
+  "application/vnd.3gpp.mcvideo-affiliation-info+xml": {
+    "source": "iana",
+    "compressible": true
+  },
+  "application/vnd.3gpp.mcvideo-location-info+xml": {
+    "source": "iana",
+    "compressible": true
+  },
+  "application/vnd.3gpp.mcvideo-mbms-usage-info+xml": {
+    "source": "iana",
+    "compressible": true
+  },
+  "application/vnd.3gpp.mcvideo-service-config+xml": {
+    "source": "iana",
+    "compressible": true
+  },
+  "application/vnd.3gpp.mcvideo-transmission-request+xml": {
+    "source": "iana",
+    "compressible": true
+  },
+  "application/vnd.3gpp.mcvideo-ue-config+xml": {
+    "source": "iana",
+    "compressible": true
+  },
+  "application/vnd.3gpp.mcvideo-user-profile+xml": {
     "source": "iana",
     "compressible": true
   },
@@ -21455,6 +21576,9 @@ module.exports={
   "application/vnd.exstream-empower+zip": {
     "source": "iana",
     "compressible": false
+  },
+  "application/vnd.exstream-package": {
+    "source": "iana"
   },
   "application/vnd.ezpix-album": {
     "source": "iana",
@@ -23249,6 +23373,9 @@ module.exports={
   "application/vnd.patentdive": {
     "source": "iana"
   },
+  "application/vnd.patientecommsdoc": {
+    "source": "iana"
+  },
   "application/vnd.pawaafile": {
     "source": "iana",
     "extensions": ["paw"]
@@ -23857,6 +23984,9 @@ module.exports={
     "compressible": true
   },
   "application/vnd.verimatrix.vcas": {
+    "source": "iana"
+  },
+  "application/vnd.veryant.thin": {
     "source": "iana"
   },
   "application/vnd.vidsoft.vidconference": {
@@ -25133,6 +25263,9 @@ module.exports={
   "audio/telephone-event": {
     "source": "iana"
   },
+  "audio/tetra_acelp": {
+    "source": "iana"
+  },
   "audio/tone": {
     "source": "iana"
   },
@@ -25221,6 +25354,9 @@ module.exports={
   "audio/vnd.dts.hd": {
     "source": "iana",
     "extensions": ["dtshd"]
+  },
+  "audio/vnd.dts.uhd": {
+    "source": "iana"
   },
   "audio/vnd.dvb.file": {
     "source": "iana"
@@ -26066,6 +26202,7 @@ module.exports={
     "extensions": ["jsx"]
   },
   "text/less": {
+    "compressible": true,
     "extensions": ["less"]
   },
   "text/markdown": {
@@ -26266,6 +26403,9 @@ module.exports={
     "source": "iana"
   },
   "text/vnd.radisys.msml-basic-layout": {
+    "source": "iana"
+  },
+  "text/vnd.senx.warpscript": {
     "source": "iana"
   },
   "text/vnd.si.uricatalogue": {
@@ -27187,6 +27327,7 @@ function isNumber (x) {
 
 
 },{}],80:[function(require,module,exports){
+(function (global){
 "use strict";
 
 // ref: https://github.com/tc39/proposal-global
@@ -27210,6 +27351,7 @@ exports.default = global.fetch.bind(global);
 exports.Headers = global.Headers;
 exports.Request = global.Request;
 exports.Response = global.Response;
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{}],81:[function(require,module,exports){
 //through@2 handles this by default!
 module.exports = require('through')
@@ -27597,6 +27739,7 @@ function fromByteArray (uint8) {
 },{}],87:[function(require,module,exports){
 arguments[4][85][0].apply(exports,arguments)
 },{"dup":85}],88:[function(require,module,exports){
+(function (Buffer){
 /*!
  * The buffer module from node.js, for the browser.
  *
@@ -29375,7 +29518,8 @@ function numberIsNaN (obj) {
   return obj !== obj // eslint-disable-line no-self-compare
 }
 
-},{"base64-js":86,"ieee754":91}],89:[function(require,module,exports){
+}).call(this,require("buffer").Buffer)
+},{"base64-js":86,"buffer":88,"ieee754":91}],89:[function(require,module,exports){
 (function (Buffer){
 // Copyright Joyent, Inc. and other Node contributors.
 //
