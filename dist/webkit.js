@@ -6987,6 +6987,7 @@ const defaults = {
   quote: '"',
   raw: false,
   separator: ',',
+  skipComments: false,
   skipLines: null,
   maxRowBytes: Number.MAX_SAFE_INTEGER,
   strict: false
@@ -7104,6 +7105,14 @@ class CsvParser extends Transform {
     let isQuoted = false
     let offset = start
 
+    const { skipComments } = this
+    if (skipComments) {
+      const char = typeof skipComments === 'string' ? skipComments : '#'
+      if (buf[start] === bufferFrom(char)[0]) {
+        return
+      }
+    }
+
     const mapValue = (value) => {
       if (this._first) {
         return value
@@ -7146,7 +7155,7 @@ class CsvParser extends Transform {
       cells.push(this._empty)
     }
 
-    const skip = this.skipLines && this.skipLines !== this._line
+    const skip = this.skipLines && this.skipLines > this._line
     this._line++
 
     if (this._first && !skip) {
@@ -7161,7 +7170,7 @@ class CsvParser extends Transform {
       const e = new RangeError('Row length does not match headers')
       this.emit('error', e)
     } else {
-      if (!this._first) this._emit(this._Row, cells)
+      if (!skip) this._emit(this._Row, cells)
     }
   }
 
@@ -7899,8 +7908,8 @@ EventTarget.prototype.emit = EventTarget.prototype.dispatchEvent;
 
 module.exports = EventTarget;
 },{}],31:[function(require,module,exports){
-function* kv(obj, parentKey="", parent=null) { var keys=Object.getOwnPropertyNames(obj); for(let i=0;i<keys.length;i++) { let k=keys[i]; let v=obj[k]; if (typeof v=='object') { yield* kv(v, k, obj) } else { yield({k:k,v:v,obj:obj, parent:parent, parentKey:parentKey})}}};
-var find = kv.find =(iterable,fn,offset=0)=>{ var i=0; var pos=-1; for (var n of iterable) { console.log(`iteration:${i} offset: ${offset} pos:${pos} fn(${n}):${fn(n)} offset==pos:${offset===pos} | `); if(fn(n)) {  pos++; if(pos===offset) { return n; } } i++; } };
+function* kv(obj, parentKey="", parent=null) { var keys=Object.getOwnPropertyNames(obj); for(let i=0;i<keys.length;i++) { let k=keys[i]; let v=obj[k]; if (typeof v=='object') { yield* kv(v, k, obj); }; yield({k:k,v:v,obj:obj, parent:parent, parentKey:parentKey})}};
+kv.help='var a={a: {b :{c: 23}}}; [...kv(a)].filter(({k,v,obj,parent,parentKey})=>parentKey="c")';
 
 module.exports = kv;
 },{}],32:[function(require,module,exports){
@@ -8139,8 +8148,9 @@ var describe=exports.describe=(obj)=>[...protochain(obj)].map(o=>[o,Object.getOw
 
 
 //urlcreate 
-var urlcreate=exports.urlcreate=(url)=>{ var rx=/\[(\d+):(\d+)\]/; var m=url.match(rx); var pad=m[1].length,from=Number(m[1]),to=Number(m[2]); return Array.from({length:to-from+1},(e,i)=>i+from).map(x=>url.replace(m[0],String(x).padStart(pad,'0'))); }; 
-urlcreate.help=`urlcreate("http://elle-fanning.net/images/albums/candids/2012/019-shermanoaks/candids_inshermanoaks[001:020].jpg");//creates array replacing the square block [from:to] with padStart 0s as specified`;
+var stringMap=exports.stringMap=s=>{ var u=(url)=>{ var rx=/\[(\d+):(\d+)\]/; var m=url.match(rx); var pad=m[1].length,from=Number(m[1]),to=Number(m[2]); return Array.from({length:to-from+1},(e,i)=>i+from).map(x=>url.replace(m[0],String(x).padStart(pad,'0'))); }; var rxOuter=/\[\d+:\d+\]/; var arr=[]; var m; while(m=s.match(rxOuter)) { s=s.replace(m[0],'{{'+arr.length+'}}'); arr.push(u(m[0]));}; return cartesian.apply(null,arr).map(mx=>Object.entries(mx).reduce((prev,[k,v])=>prev.replace('{{'+k+'}}',v),s)); };
+stringMap.help=`stringMap("http://elle-fanning.net/images/albums/candids/[2009:2012]/019-shermanoaks/candids_inshermanoaks[001:020].jpg");// range-map-combinator: square block [from:to] with padStart 0s as specified`;
+
 // globals (NOT RECOMMENDED)
 // ---------
 var setGlobals = exports.setGlobals = () => {
@@ -8194,8 +8204,8 @@ module.exports = {
 };
 },{}],35:[function(require,module,exports){
 const PIE = exports.PIE = Math.PIE = 2*Math.PI;
-var deg = exports.deg = x => x * (PIE/360);
-var rad = exports.rad = alpha => alpha * (360/PIE);
+var deg = exports.deg = x => x/(2*Math.PI/360)
+var rad = exports.rad = phi => phi*(2*Math.PI/360);
 
 
 //var divisors = n =>{ var t1=Date.now(); var result=Array.from({length: Math.floor(n/2)},(e,i)=>i+1).filter(x=>n%x==0); var t2=Date.now(); console.log(`[brute force] computing divisors: ${n} .. ${t2-t1}ms `); return result; };
@@ -8361,7 +8371,10 @@ module.exports = Stats;
 },{"./lib":32}],40:[function(require,module,exports){
 var UUID = module.exports = () => { var s4=()=>Math.floor((1+Math.random())*0x10000).toString(16).substring(1); return s4()+s4()+'-'+s4()+'-'+s4()+'-'+s4()+'-'+s4()+s4()+s4()};
 },{}],41:[function(require,module,exports){
-var {inspect}=require('util');
+//var {inspect}=require('util');
+
+var deg = x => x/(2*Math.PI/360)
+var rad = phi => phi*(2*Math.PI/360);
 
 class Vector extends Array {
 
@@ -8403,6 +8416,9 @@ class Vector extends Array {
       return new Vector([x||0,...yz]);
     }
   }
+  static createNormByAngle(degree) {
+    return this.create([Math.cos(rad(degree)),Math.sin(rad(degree))]);
+  }
 
   static scale(k, v) {
     return Vector.create(v.map((a,i)=>k*a));
@@ -8415,7 +8431,8 @@ class Vector extends Array {
   }
 
   static subtract(...vs) {
-    return vs.reduce((v1,v2)=>v1.subtract(v2), Vector.create(new Array(vs[0].length)).fill(0));
+    var v3=Vector.create(vs[0]);
+    return vs.slice(1).reduce((v1,v2)=>v1.subtract(v2),v3);
   }
 
   subtract(v) {
@@ -8436,7 +8453,7 @@ class Vector extends Array {
   }
 
   static dot(v1, v2) {
-    return Vector.create(v1.map((a,i)=>v1[i]*v2[i]));
+    return v1.map((a,i)=>v1[i]*v2[i]).reduce((a,b)=>a+b);
   }
 
   dot(v2) {
@@ -8444,20 +8461,29 @@ class Vector extends Array {
   }
 
   static size(v) {
-    return Vector.length(v);
-  }
-  static length(v) {
     return Math.sqrt(v.reduce((sum,a)=>sum+a*a,0));
   }
 
   get size() {
-    return Vector.length(this)
+    return Vector.size(this)
   }
 
   static norm(v) {
-    let length = Vector.size(v);
-    let div = (length === 0) ? Infinity : 1.0 / length;
-    return Vector.scale(div, v);
+    var len = v.size;
+    var k = (len === 0) 
+      ? 0 
+      : 1.0 / len;
+    return Vector.scale(k, v);
+  }
+
+  get angle() {
+    return Vector.angle(this);
+  }
+  static angle(v) {
+    //return deg(Math.acos(v.norm()[0]));
+    var [cos,sin] = v.norm();
+    var angle = deg(Math.atan(sin/cos));
+    return  angle;
   }
 
   norm() {
@@ -8472,7 +8498,7 @@ class Vector extends Array {
     ]);
   }
 
-  cross(v2) {
+  cross(v2) {m
     return Vector.cross(this, v2);
   }
 
@@ -8502,8 +8528,17 @@ class Matrix {
         } else {
           this.rows=Array.from({length:rows},(e,i)=>new Vector(cols));
         }
+        Object.assign(this,this.rows);
+        this.length=this.rows.length;
     }
-    static create3DRotation(roll, pitch, yaw) {
+    [Symbol.iterator]() {
+      return this.rows[Symbol.iterator]();
+    }
+    static rotation3D(roll=0, pitch=0, yaw=0) {
+
+      roll=rad(roll);
+      pitch=rad(pitch);
+      yaw=rad(yaw);
 	
       var {cos, sin} = Math;
     
@@ -8520,19 +8555,21 @@ class Matrix {
         [-sinb, cosb*sinc, cosb*cosc]
       ]);
     }
-    static create2DRotation(phi) {
+    static rotation2D(v1) {
       
-      var {cos, sin} = Math;
+      
+      var [cosP, sinP] = Vector.create(v1).norm();
 
+      /*
       var cosP=cos(phi);
       var sinP=sin(phi);
-
+      /* */
       return new Matrix([
         [cosP, -sinP],
         [sinP, cosP]
       ]);
     }
-    times(v1) {
+    multiplicate(v1) {
       return Vector.create(this.rows.map(row=>Vector.dot(row,v1)));
     }
 }
@@ -8540,7 +8577,7 @@ class Matrix {
 exports.Vector = Vector;
 exports.Matrix = Matrix;
 exports.v = function(){ return Vector.create.apply(Vector, arguments); }
-},{"util":124}],42:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
 var Vector2D = exports.Vector2D = class Vector2D {
     constructor(x,y) {
         this.x = x || 0;
@@ -8912,12 +8949,9 @@ var view=module.exports=(obj)=>{ var cx={f:[],o:[]}; for(var key in obj) { if(ty
 
   /* global document */
   var domAll = (typeof document === 'undefined' || !document) ? null : document.all;
-  /* jshint eqnull:true */
   var isNullOrUndefined = domAll == null ? function isNullOrUndefined(x) {
-    /* jshint eqnull:true */
     return x == null;
   } : function isNullOrUndefinedAndNotDocumentAll(x) {
-    /* jshint eqnull:true */
     return x == null && x !== domAll;
   };
 
@@ -10031,9 +10065,7 @@ var view=module.exports=(obj)=>{ var cx={f:[],o:[]}; for(var key in obj) { if(ty
         if (receiver instanceof NumberShim && !valueOfSucceeds) {
           return new OrigNumber(primValue);
         }
-        /* jshint newcap: false */
         return OrigNumber(primValue);
-        /* jshint newcap: true */
       };
       return NumberShim;
     }());
@@ -10048,10 +10080,8 @@ var view=module.exports=(obj)=>{ var cx={f:[],o:[]}; for(var key in obj) { if(ty
     });
     /* globals Number: true */
     /* eslint-disable no-undef, no-global-assign */
-    /* jshint -W020 */
     Number = NumberShim;
     Value.redefine(globals, 'Number', NumberShim);
-    /* jshint +W020 */
     /* eslint-enable no-undef, no-global-assign */
     /* globals Number: false */
   }
@@ -10084,7 +10114,6 @@ var view=module.exports=(obj)=>{ var cx={f:[],o:[]}; for(var key in obj) { if(ty
   // implementations skipped holes in sparse arrays. (Note that the
   // implementations of find/findIndex indirectly use shimmed
   // methods of Number, so this test has to happen down here.)
-  /*jshint elision: true */
   /* eslint-disable no-sparse-arrays */
   if ([, 1].find(function () { return true; }) === 1) {
     overrideNative(Array.prototype, 'find', ArrayPrototypeShims.find);
@@ -10093,7 +10122,6 @@ var view=module.exports=(obj)=>{ var cx={f:[],o:[]}; for(var key in obj) { if(ty
     overrideNative(Array.prototype, 'findIndex', ArrayPrototypeShims.findIndex);
   }
   /* eslint-enable no-sparse-arrays */
-  /*jshint elision: false */
 
   var isEnumerableOn = Function.bind.call(Function.bind, Object.prototype.propertyIsEnumerable);
   var ensureEnumerable = function ensureEnumerable(obj, prop) {
@@ -10456,10 +10484,8 @@ var view=module.exports=(obj)=>{ var cx={f:[],o:[]}; for(var key in obj) { if(ty
     });
     /* globals RegExp: true */
     /* eslint-disable no-undef, no-global-assign */
-    /* jshint -W020 */
     RegExp = RegExpShim;
     Value.redefine(globals, 'RegExp', RegExpShim);
-    /* jshint +W020 */
     /* eslint-enable no-undef, no-global-assign */
     /* globals RegExp: false */
   }
@@ -10831,12 +10857,10 @@ var view=module.exports=(obj)=>{ var cx={f:[],o:[]}; for(var key in obj) { if(ty
       };
     };
     /*global process */
-    /* jscs:disable disallowMultiLineTernary */
     var enqueue = ES.IsCallable(globals.setImmediate) ?
       globals.setImmediate :
       typeof process === 'object' && process.nextTick ? process.nextTick : makePromiseAsap() ||
       (ES.IsCallable(makeZeroTimeout) ? makeZeroTimeout() : function (task) { setTimeout(task, 0); }); // fallback
-    /* jscs:enable disallowMultiLineTernary */
 
     // Constants for Promise implementation
     var PROMISE_IDENTITY = function (x) { return x; };
@@ -11315,9 +11339,7 @@ var view=module.exports=(obj)=>{ var cx={f:[],o:[]}; for(var key in obj) { if(ty
         !getsThenSynchronously || hasBadResolverPromise) {
       /* globals Promise: true */
       /* eslint-disable no-undef, no-global-assign */
-      /* jshint -W020 */
       Promise = PromiseShim;
-      /* jshint +W020 */
       /* eslint-enable no-undef, no-global-assign */
       /* globals Promise: false */
       overrideNative(globals, 'Promise', PromiseShim);
@@ -13675,6 +13697,7 @@ function Options(options, merge_child_field) {
   // Backwards compat with 1.3.x
   this.wrap_line_length = this._get_number('wrap_line_length', this._get_number('max_char'));
 
+  this.indent_empty_lines = this._get_boolean('indent_empty_lines');
 }
 
 Options.prototype._get_array = function(name, default_value) {
@@ -13959,7 +13982,11 @@ OutputLine.prototype.trim = function() {
 
 OutputLine.prototype.toString = function() {
   var result = '';
-  if (!this.is_empty()) {
+  if (this.is_empty()) {
+    if (this.__parent.indent_empty_lines) {
+      result = this.__parent.get_indent_string(this.__indent_count);
+    }
+  } else {
     result = this.__parent.get_indent_string(this.__indent_count, this.__alignment_count);
     result += this.__items.join('');
   }
@@ -14036,6 +14063,7 @@ function Output(options, baseIndentString) {
   this._end_with_newline = options.end_with_newline;
   this.indent_size = options.indent_size;
   this.wrap_line_length = options.wrap_line_length;
+  this.indent_empty_lines = options.indent_empty_lines;
   this.__lines = [];
   this.previous_line = null;
   this.current_line = null;
@@ -16201,8 +16229,8 @@ Beautifier.prototype._do_optional_end_element = function(parser_token) {
   } else if (parser_token.tag_name === 'th' || parser_token.tag_name === 'td') {
     // A td element’s end tag may be omitted if the td element is immediately followed by a td or th element, or if there is no more content in the parent element.
     // A th element’s end tag may be omitted if the th element is immediately followed by a td or th element, or if there is no more content in the parent element.
-    result = result || this._tag_stack.try_pop('td', ['tr']);
-    result = result || this._tag_stack.try_pop('th', ['tr']);
+    result = result || this._tag_stack.try_pop('td', ['table', 'thead', 'tbody', 'tfoot', 'tr']);
+    result = result || this._tag_stack.try_pop('th', ['table', 'thead', 'tbody', 'tfoot', 'tr']);
   }
 
   // Start element omission not handled currently
